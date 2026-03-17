@@ -1,0 +1,5 @@
+{
+  "telegram_app_id": 123456,
+  "telegram_app_hash": "your_telegram_app_hash_here",
+  "session_path": ""
+}
