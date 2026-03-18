@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "termigram",
+  "project_id": "2ee196d7-3f16-4791-97c3-0e16128bc5f2"
+}

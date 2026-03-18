@@ -36,3 +36,8 @@ session.json
 # Build artifacts
 dist/
 build/
+.pi/agent-sessions/
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
