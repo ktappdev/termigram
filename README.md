@@ -22,42 +22,18 @@ Option B (from a local clone):
 make build
 ```
 
-### 2) Create Telegram API credentials (one-time)
-
-1. Go to [my.telegram.org](https://my.telegram.org)
-2. Sign in with your phone number
-3. Open **API development tools**
-4. Create an app and copy:
-   - `app_id`
-   - `app_hash`
-
-### 3) Add config
-
-Create `config.json` next to the `termigram` executable:
-
-```json
-{
-  "telegram_app_id": 123456,
-  "telegram_app_hash": "your_telegram_app_hash_here",
-  "session_path": ""
-}
-```
-
-If `session_path` is empty, default is:
-
-```text
-~/.termigram/session.json
-```
-
-(You can also use env vars: `TELEGRAM_APP_ID`, `TELEGRAM_APP_HASH`, `TELEGRAM_SESSION_PATH`.)
-
-### 4) Authenticate and start chatting
+### 2) Authenticate and start chatting
 
 ```bash
 ./termigram
 ```
 
-On first run, enter your phone number and the Telegram code. After that, your session is reused.
+On first run:
+1. Enter your phone number
+2. Enter the verification code sent by Telegram
+3. Start chatting!
+
+Your session is saved automatically (default: `~/.termigram/session.json`) and reused on subsequent runs.
 
 Send your first message:
 
@@ -436,6 +412,28 @@ Optional manual override:
 ```bash
 make build-version VERSION=1.2.3
 ```
+
+---
+
+## Advanced configuration
+
+termigram works out of the box with interactive authentication. For advanced use cases, you can configure:
+
+### Session storage
+
+By default, sessions are stored at `~/.termigram/session.json`. Override with:
+
+```bash
+export TELEGRAM_SESSION_PATH=/custom/path/session.json
+```
+
+### Environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `TELEGRAM_SESSION_PATH` | Custom session file location |
+
+---
 
 ## License
 
