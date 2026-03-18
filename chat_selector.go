@@ -106,7 +106,11 @@ func (cli *TelegramCLI) cachedChatsForPartial(query string, limit int) []CachedC
 func (cli *TelegramCLI) printChatCandidates(title string, chats []CachedChat) {
 	fmt.Println(bold(cyan(title)))
 	for _, c := range chats {
-		fmt.Printf("  %s %s\n", bold(c.Label), dim("("+c.Target+")"))
+		unread := ""
+		if c.UnreadCount > 0 {
+			unread = " " + blue(fmt.Sprintf("[%d unread]", c.UnreadCount))
+		}
+		fmt.Printf("  %s %s%s\n", bold(c.Label), dim("("+c.Target+")"), unread)
 	}
 }
 
@@ -187,7 +191,11 @@ func (cli *TelegramCLI) pickCachedChat(title string, initialQuery string, chats 
 			if !c.LastActivity.IsZero() {
 				timeLabel = " " + dim(c.LastActivity.Format("15:04"))
 			}
-			out("%s%s %s%s\n", cursor, lineStyle(c.Label), dim("("+c.Target+")"), timeLabel)
+			unread := ""
+			if c.UnreadCount > 0 {
+				unread = " " + blue(fmt.Sprintf("[%d unread]", c.UnreadCount))
+			}
+			out("%s%s %s%s%s\n", cursor, lineStyle(c.Label), dim("("+c.Target+")"), timeLabel, unread)
 		}
 		return filtered
 	}

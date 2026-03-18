@@ -106,7 +106,7 @@ func (m Model) Init() tea.Cmd {
 		m.Header.Status = StatusDisconnected
 		m.lastError = "backend unavailable; running in stub mode"
 	} else {
-		cmds = append(cmds, m.loadAuthCmd(), m.loadMessagesCmd())
+		cmds = append(cmds, m.loadAuthCmd())
 	}
 	if m.needsAnimation() {
 		cmds = append(cmds, animationTickCmd())
@@ -139,7 +139,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Header.Username = msg.Username
 		}
 		m.lastError = ""
-		return m, m.maybeStartAnimationCmd()
+		return m, tea.Batch(m.maybeStartAnimationCmd(), m.loadDialogsCmd())
+	case backendDialogsMsg:
+		if msg.Err != nil {
+			m.lastError = msg.Err.Error()
+			return m, nil
+		}
+		m.lastError = ""
+		m.ChatList.Chats = make([]ChatItem, 0, len(msg.Dialogs))
+		for _, dialog := range msg.Dialogs {
+			m.ChatList.Chats = append(m.ChatList.Chats, ChatItem{
+				Title:       dialog.Title,
+				Target:      dialog.Target,
+				LastMessage: dialog.LastMessage,
+				LastTime:    dialog.LastTime,
+				Online:      dialog.Online,
+				UnreadCount: dialog.UnreadCount,
+			})
+		}
+		if len(m.ChatList.Chats) == 0 {
+			m.ChatList.SelectedIdx = 0
+			m.Messages.Messages = nil
+			m.syncHeaderChat()
+			return m, nil
+		}
+		if m.ChatList.SelectedIdx >= len(m.ChatList.Chats) {
+			m.ChatList.SelectedIdx = len(m.ChatList.Chats) - 1
+		}
+		m.syncHeaderChat()
+		return m, m.loadMessagesCmd()
 	case backendMessagesMsg:
 		if msg.Err != nil {
 			m.lastError = msg.Err.Error()
@@ -381,6 +409,16 @@ func (m Model) loadAuthCmd() tea.Cmd {
 			return backendAuthMsg{Err: err}
 		}
 		return backendAuthMsg{Username: self.Username}
+	}
+}
+
+func (m Model) loadDialogsCmd() tea.Cmd {
+	if m.backend == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		dialogs, err := m.backend.GetDialogs(m.ctx, 50)
+		return backendDialogsMsg{Dialogs: dialogs, Err: err}
 	}
 }
 

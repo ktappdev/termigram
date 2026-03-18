@@ -54,6 +54,7 @@ type CachedChat struct {
 	Target       string
 	LastMessage  string
 	LastActivity time.Time
+	UnreadCount  int
 }
 
 func (cli *TelegramCLI) markChatActivity(target string, message string, at time.Time) {
@@ -70,6 +71,16 @@ func (cli *TelegramCLI) markChatActivity(target string, message string, at time.
 	if strings.TrimSpace(message) != "" {
 		cli.chatLastMessage[normalized] = strings.TrimSpace(message)
 	}
+}
+
+func (cli *TelegramCLI) setChatUnreadCount(target string, unreadCount int) {
+	normalized := normalizeUsername(target)
+	if normalized == "" {
+		return
+	}
+	cli.mu.Lock()
+	defer cli.mu.Unlock()
+	cli.chatUnreadCount[normalized] = unreadCount
 }
 
 func (cli *TelegramCLI) listCachedChats(limit int) []CachedChat {
@@ -102,6 +113,7 @@ func (cli *TelegramCLI) listCachedChats(limit int) []CachedChat {
 			Target:       target,
 			LastMessage:  cli.chatLastMessage[normalized],
 			LastActivity: cli.chatLastActivity[normalized],
+			UnreadCount:  cli.chatUnreadCount[normalized],
 		})
 	}
 
