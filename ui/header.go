@@ -31,7 +31,7 @@ type HeaderModel struct {
 // NewHeader creates a minimal header with Telegram-like defaults.
 func NewHeader() HeaderModel {
 	return HeaderModel{
-		Title:       "Telegram CLI",
+		Title:       "termigram",
 		CurrentChat: "",
 		Username:    "user",
 		Status:      StatusDisconnected,
@@ -55,7 +55,7 @@ func (h HeaderModel) Update(msg tea.Msg) HeaderModel {
 // View renders the header row and adapts to available width.
 func (h HeaderModel) View() string {
 	left := fmt.Sprintf(" %s", h.Title)
-	if h.CurrentChat != "" && h.Title == "Telegram CLI" {
+	if h.CurrentChat != "" && h.Title == "termigram" {
 		left = fmt.Sprintf(" %s  💬 %s", h.Title, h.CurrentChat)
 	}
 	rightFull := fmt.Sprintf("%s %s | @%s ", h.statusBadge(), h.Status, h.Username)

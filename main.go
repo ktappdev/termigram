@@ -9,7 +9,9 @@ import (
 	"time"
 )
 
-const appVersion = "v0.1.0"
+// appVersion is overridden at build time via ldflags:
+// go build -ldflags "-X main.appVersion=v1.2.3"
+var appVersion = "dev"
 
 func main() {
 	remainingArgs, rootMode, handled, err := parseRootFlags(os.Args[1:])
@@ -63,8 +65,8 @@ func printConfigErrorAndExit(err error) {
 	fmt.Println("2. Log in with your phone number")
 	fmt.Println("3. Create a new application")
 	fmt.Println("4. Copy the app_id and app_hash")
-	fmt.Printf("\nThen place %s next to the modern-telegram-cli executable (for local builds, that's typically this directory) by copying %s.example, or set environment variables:\n", localConfigFile, localConfigFile)
-	fmt.Println("  cp /path/to/modern-telegram-cli/config.json.example /path/to/modern-telegram-cli/config.json")
+	fmt.Printf("\nThen place %s next to the termigram executable (for local builds, that's typically this directory) by copying %s.example, or set environment variables:\n", localConfigFile, localConfigFile)
+	fmt.Println("  cp /path/to/termigram/config.json.example /path/to/termigram/config.json")
 	fmt.Println("  export TELEGRAM_APP_ID=your_app_id")
 	fmt.Println("  export TELEGRAM_APP_HASH=your_app_hash")
 	fmt.Println("  export TELEGRAM_BOT_TOKEN=your_bot_token")
@@ -72,7 +74,7 @@ func printConfigErrorAndExit(err error) {
 }
 
 func parseRootFlags(args []string) (remaining []string, mode string, handled bool, err error) {
-	fs := flag.NewFlagSet("modern-telegram-cli", flag.ContinueOnError)
+	fs := flag.NewFlagSet("termigram", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 
 	var help bool
@@ -93,7 +95,7 @@ func parseRootFlags(args []string) (remaining []string, mode string, handled boo
 		return nil, "", true, nil
 	}
 	if version {
-		fmt.Printf("modern-telegram-cli %s\n", appVersion)
+		fmt.Printf("termigram %s\n", appVersion)
 		return nil, "", true, nil
 	}
 
@@ -196,12 +198,12 @@ func hasHelpFlag(args []string) bool {
 }
 
 func printRootHelp() {
-	fmt.Println(`modern-telegram-cli - Telegram MTProto CLI
+	fmt.Println(`termigram - Telegram MTProto CLI
 
 Usage:
-  ./modern-telegram-cli [--help|-h] [--version|-v] [--mode user|bot]
-  ./modern-telegram-cli [--mode user]                # interactive mode
-  ./modern-telegram-cli <command> [options]          # one-shot mode
+  ./termigram [--help|-h] [--version|-v] [--mode user|bot]
+  ./termigram [--mode user]                # interactive mode
+  ./termigram <command> [options]          # one-shot mode
 
 One-shot commands:
   send [--mode user|bot] [--json] [--timeout 30s] <user_id|@username> <message>
@@ -211,11 +213,11 @@ One-shot commands:
   find [--mode user|bot] [--json] [--timeout 30s] <prefix>
 
 Examples:
-  ./modern-telegram-cli
-  ./modern-telegram-cli send @ken "Hello"
-  ./modern-telegram-cli get --json --limit 20 @ken
-  ./modern-telegram-cli contacts --json
-  ./modern-telegram-cli send --help
+  ./termigram
+  ./termigram send @ken "Hello"
+  ./termigram get --json --limit 20 @ken
+  ./termigram contacts --json
+  ./termigram send --help
 
 Global flags:
   -h, --help       Show this help
@@ -223,7 +225,7 @@ Global flags:
   --mode           Auth mode: user|bot
 
 Command help:
-  ./modern-telegram-cli <command> --help`)
+  ./termigram <command> --help`)
 }
 
 func printCommandHelp(command string) {
@@ -232,50 +234,50 @@ func printCommandHelp(command string) {
 		fmt.Println(`send - send a message to a user
 
 Usage:
-  ./modern-telegram-cli send [--mode user|bot] [--json] [--timeout 30s] <user_id|@username> <message>
+  ./termigram send [--mode user|bot] [--json] [--timeout 30s] <user_id|@username> <message>
 
 Examples:
-  ./modern-telegram-cli send @ken "Hello from script"
-  ./modern-telegram-cli send --json 123456789 "Hello"`)
+  ./termigram send @ken "Hello from script"
+  ./termigram send --json 123456789 "Hello"`)
 	case "get":
 		fmt.Println(`get - fetch recent messages from a user
 
 Usage:
-  ./modern-telegram-cli get [--mode user|bot] [--json] [--timeout 30s] [--limit N] <user_id|@username>
+  ./termigram get [--mode user|bot] [--json] [--timeout 30s] [--limit N] <user_id|@username>
 
 Flags:
   --limit N   Number of messages to fetch (default 10)
 
 Examples:
-  ./modern-telegram-cli get @ken
-  ./modern-telegram-cli get --json --limit 20 @ken`)
+  ./termigram get @ken
+  ./termigram get --json --limit 20 @ken`)
 	case "contacts":
 		fmt.Println(`contacts - list contacts
 
 Usage:
-  ./modern-telegram-cli contacts [--mode user|bot] [--json] [--timeout 30s]
+  ./termigram contacts [--mode user|bot] [--json] [--timeout 30s]
 
 Examples:
-  ./modern-telegram-cli contacts
-  ./modern-telegram-cli contacts --json`)
+  ./termigram contacts
+  ./termigram contacts --json`)
 	case "me":
 		fmt.Println(`me - show current account info
 
 Usage:
-  ./modern-telegram-cli me [--mode user|bot] [--json] [--timeout 30s]
+  ./termigram me [--mode user|bot] [--json] [--timeout 30s]
 
 Examples:
-  ./modern-telegram-cli me
-  ./modern-telegram-cli me --json`)
+  ./termigram me
+  ./termigram me --json`)
 	case "find":
 		fmt.Println(`find - find cached usernames by prefix
 
 Usage:
-  ./modern-telegram-cli find [--mode user|bot] [--json] [--timeout 30s] <prefix>
+  ./termigram find [--mode user|bot] [--json] [--timeout 30s] <prefix>
 
 Examples:
-  ./modern-telegram-cli find ken
-  ./modern-telegram-cli find --json ken`)
+  ./termigram find ken
+  ./termigram find --json ken`)
 	default:
 		printRootHelp()
 	}

@@ -31,7 +31,7 @@ func defaultSessionPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("error getting home directory: %w", err)
 	}
-	return filepath.Join(homeDir, ".modern-telegram-cli", "session.json"), nil
+	return filepath.Join(homeDir, ".termigram", "session.json"), nil
 }
 
 func defaultConfig() (Config, error) {

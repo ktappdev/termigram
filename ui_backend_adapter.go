@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ktappdev/modern-telegram-cli/ui"
+	"github.com/ktappdev/termigram/ui"
 )
 
 // uiBackendAdapter maps UserBackend data to ui.Backend types.

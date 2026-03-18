@@ -3,7 +3,7 @@ package ui
 import "strings"
 
 func (m *Model) syncHeaderChat() {
-	m.Header.Title = "Telegram CLI"
+	m.Header.Title = "termigram"
 
 	chat, ok := m.selectedChat()
 	if !ok {
@@ -19,9 +19,9 @@ func (m *Model) syncHeaderChat() {
 	}
 
 	if chat.Target != "" {
-		m.Header.Title = "Telegram CLI · " + label + " (" + chat.Target + ")"
+		m.Header.Title = "termigram · " + label + " (" + chat.Target + ")"
 		return
 	}
 
-	m.Header.Title = "Telegram CLI · " + label
+	m.Header.Title = "termigram · " + label
 }

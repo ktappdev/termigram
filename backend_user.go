@@ -32,7 +32,7 @@ func (b *UserBackend) Run(ctx context.Context, fn func(context.Context) error) e
 			return fmt.Errorf("failed to get auth status: %w", err)
 		}
 		if !authorized {
-			return fmt.Errorf("not authenticated - run interactive mode first: ./modern-telegram-cli")
+			return fmt.Errorf("not authenticated - run interactive mode first: ./termigram")
 		}
 
 		if _, err := b.GetSelf(runCtx); err != nil {

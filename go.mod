@@ -1,4 +1,4 @@
-module github.com/ktappdev/modern-telegram-cli
+module github.com/ktappdev/termigram
 
 go 1.21
 
