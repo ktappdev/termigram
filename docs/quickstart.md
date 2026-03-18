@@ -1,107 +1,66 @@
----
-title: Quickstart
----
+# Quickstart on `dev`
 
-# Quickstart
+Use this quickstart when validating the current documentation and workflow on the `dev` branch.
 
-This is the fastest path to getting termigram running.
+## Task links
 
-## Install
+This page tracks the `dev` branch documentation work for:
 
-### Option A: install with Go
+- `termigram-86w`
+- `termigram-898`
+- `termigram-ubz`
+- `termigram-u5y`
+- `termigram-9mr`
+- `termigram-vzq`
+
+## 1. Clone and switch to `dev`
 
 ```bash
-go install github.com/ktappdev/termigram@latest
+git clone https://github.com/ktappdev/termigram.git
+cd termigram
+git checkout dev
 ```
 
-### Option B: build from a local clone
+## 2. Build the CLI
 
 ```bash
 make build
 ```
 
-## Run termigram
+## 3. Run once to authenticate
 
 ```bash
 ./termigram
 ```
 
-On first launch:
+On first run:
 
 1. Enter your phone number
-2. Enter the verification code from Telegram
-3. Start chatting
+2. Enter the Telegram verification code
+3. Reuse the saved session on later runs
 
-termigram saves your session automatically and reuses it on later runs.
-
-## Send your first message
-
-### Interactive flow
-
-Open a chat picker:
-
-```text
-\chats
-```
-
-Or send directly:
-
-```text
-\msg @username Hello!
-```
-
-### One-shot CLI flow
+## 4. Validate key CLI commands
 
 ```bash
-./termigram send --json @username "Hello from termigram"
+./termigram --help
+./termigram me --json
+./termigram contacts --json
 ```
 
-## Authentication prerequisite for automation
+## 5. Verify GitHub Pages docs changes on `dev`
 
-Before one-shot commands work reliably in scripts, complete one interactive login first:
+Before merging documentation updates:
 
-```bash
-./termigram
-```
+1. Confirm your branch was created from `dev`
+2. Confirm your pull request targets `dev`
+3. Confirm GitHub Pages workflow references and links point to `dev`
+4. Confirm merged docs are visible after deployment
 
-This creates or reuses the local session file.
+## Related docs
 
-## Common commands
-
-- `./termigram me --json`
-- `./termigram contacts --json`
-- `./termigram find --json ke`
-- `./termigram get --json --limit 5 @username`
-- `./termigram send --json @username "Hello"`
-
-## Session storage
-
-By default, the session is stored at:
-
-```text
-~/.termigram/session.json
-```
-
-To override it:
-
-```bash
-export TELEGRAM_SESSION_PATH=/custom/path/session.json
-```
-
-## Credential overrides
-
-Use environment variables when you want to override configured credentials:
-
-```bash
-export TELEGRAM_APP_ID=your_app_id
-export TELEGRAM_APP_HASH=your_app_hash
-```
-
-You can also copy `config.json.example` to `config.json` next to the executable and fill in your own values.
-
-## Troubleshooting checklist
-
-- Make sure you completed at least one interactive login
-- Put flags before positional arguments in one-shot mode
-- Use `--json` for scripts and automation
-- Use `--timeout` in automated contexts to avoid hanging commands
+- [Docs index](./index.md)
+- [Install guide](./install.md)
+- [FAQ and troubleshooting](./faq.md)
+- [README](../README.md)
+- [Contributing](../CONTRIBUTING.md)
+- [Branch workflow](../BRANCH_WORKFLOW.md)

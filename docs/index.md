@@ -1,62 +1,74 @@
 ---
-title: termigram Documentation
+title: termigram GitHub Pages on dev
+description: Install and deploy the termigram GitHub Pages documentation from the dev branch, with contributor workflow links and task tracking.
+keywords:
+  - termigram
+  - Telegram CLI
+  - Go CLI
+  - MTProto
+  - GitHub Pages
+  - dev branch
 ---
 
-# termigram Documentation
+# termigram docs on `dev`
 
-termigram is a lightweight Telegram command-line client written in Go using MTProto via `gotd/td`.
+This GitHub Pages content is maintained from the `dev` branch.
 
-This docs set is organized for GitHub Pages and quick onboarding.
+## Branch and task tracking
 
-## Start here
+Use the `dev` branch for documentation work and deployment verification tied to:
 
-- [Quickstart](./quickstart.md) — install, authenticate, and send your first message
-- [Features](./features.md) — interactive CLI, automation support, and terminal UI capabilities
-- [CLI reference](./cli-reference.md) — one-shot commands, flags, and examples
-- [TUI guide](./tui-guide.md) — keyboard shortcuts, layout, and navigation tips
+- `termigram-86w`
+- `termigram-898`
+- `termigram-ubz`
+- `termigram-u5y`
+- `termigram-9mr`
+- `termigram-vzq`
 
-## What termigram supports
+## Install from `dev`
 
-- Interactive login and chat usage
-- One-shot CLI commands for scripts and AI agents
-- Saved local sessions for repeat use
-- Contact lookup and username prefix search
-- Terminal UI patterns for chat selection and message browsing
+To review documentation changes locally from the active branch:
 
-## Recommended path
+```bash
+git clone https://github.com/ktappdev/termigram.git
+cd termigram
+git checkout dev
+```
 
-If you are new to the project:
-
-1. Read [Quickstart](./quickstart.md)
-2. Review [CLI reference](./cli-reference.md)
-3. Use [TUI guide](./tui-guide.md) for interactive navigation help
-
-## Build from source
+Build the CLI from `dev` if you also want to validate command examples:
 
 ```bash
 make build
+./termigram --help
 ```
 
-The built binary can then be run with:
+## Deploy GitHub Pages content from `dev`
 
-```bash
-./termigram
-```
+GitHub Pages documentation updates should be prepared, reviewed, and verified from `dev`.
 
-## Configuration summary
+Recommended workflow:
 
-termigram supports Telegram credentials from:
+1. Update docs on a topic branch created from `dev`
+2. Open a pull request targeting `dev`
+3. Confirm the GitHub Pages workflow and links reference `dev`
+4. Merge to `dev`
+5. Verify the published site reflects the merged docs change
 
-1. `TELEGRAM_APP_ID` and `TELEGRAM_APP_HASH`
-2. `config.json` next to the executable
-3. baked-in build credentials when provided by a release
+## What this site covers
 
-Session storage defaults to:
+termigram is a Telegram CLI written in Go. These docs focus on:
 
-```text
-~/.termigram/session.json
-```
+- installing and building the CLI
+- running Telegram authentication flows
+- scripting with one-shot commands
+- contributing documentation and workflow updates
 
-## License
+## Related pages
 
-MIT
+- [Quickstart](./quickstart.md)
+- [Install guide](./install.md)
+- [FAQ and troubleshooting](./faq.md)
+- [Contributor workflow details](./contributing-detail.md)
+- [Repository README](../README.md)
+- [Contributing guide](../CONTRIBUTING.md)
+- [Branch workflow](../BRANCH_WORKFLOW.md)
