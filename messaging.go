@@ -51,6 +51,12 @@ func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text str
 	if user.Username != "" {
 		targetLabel = "@" + user.Username
 	}
+
+	// Skip printing if message is empty
+	if strings.TrimSpace(text) == "" {
+		return
+	}
+
 	now := time.Now()
 	cli.setCurrentChat(targetLabel, displayName)
 	cli.markChatActivity(targetLabel, text, now)
@@ -110,6 +116,11 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 	}
 
 	if !cli.shouldPrintIncoming(msg, fromTarget) {
+		return
+	}
+
+	// Skip printing if message is empty
+	if strings.TrimSpace(msg.Message) == "" {
 		return
 	}
 
