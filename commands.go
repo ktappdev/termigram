@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"golang.org/x/sys/unix"
-	"golang.org/x/term"
 )
 
 // CLI commands
@@ -83,26 +82,12 @@ func (cli *TelegramCLI) clearActiveChat(silent bool) {
 }
 
 func (cli *TelegramCLI) switchActiveChat(ctx context.Context, target string, silent bool) {
-	user, err := cli.findUserByIDOrUsername(ctx, target)
+	chat, err := cli.resolveChatTarget(ctx, target)
 	if err != nil {
 		fmt.Printf("%s %v\n", red("Error:"), err)
 		return
 	}
-	label := strings.TrimSpace(user.FirstName + " " + user.LastName)
-	if label == "" {
-		label = user.Username
-	}
-	if label == "" {
-		label = fmt.Sprintf("User %d", user.ID)
-	}
-	chatTarget := fmt.Sprintf("%d", user.ID)
-	if user.Username != "" {
-		chatTarget = "@" + user.Username
-	}
-	cli.setCurrentChat(chatTarget, label)
-	if !silent {
-		fmt.Printf("%s %s %s\n", green("✓ Active chat:"), bold(label), dim("("+chatTarget+")"))
-	}
+	cli.activateCachedChat(chat, silent)
 }
 
 func truncateInline(s string, max int) string {
@@ -165,128 +150,14 @@ func (cli *TelegramCLI) runChatsPicker() {
 		return
 	}
 
-	fd := int(os.Stdin.Fd())
-	if !term.IsTerminal(fd) {
+	result := cli.pickCachedChat("Recent chats", "", chats)
+	if !result.Interactive {
 		cli.showCachedChats()
 		return
 	}
-
-	oldState, err := term.MakeRaw(fd)
-	if err != nil {
-		fmt.Printf("%s %v\n", red("Could not start interactive chats mode:"), err)
-		cli.showCachedChats()
-		return
+	if result.Chosen != nil {
+		cli.activateCachedChat(*result.Chosen, false)
 	}
-	defer term.Restore(fd, oldState)
-
-	out := func(format string, args ...any) {
-		fmt.Printf(strings.ReplaceAll(format, "\n", "\r\n"), args...)
-	}
-
-	query := ""
-	selected := 0
-
-	render := func() []CachedChat {
-		filtered := filterChats(chats, query)
-		if selected >= len(filtered) {
-			selected = len(filtered) - 1
-		}
-		if selected < 0 {
-			selected = 0
-		}
-
-		fmt.Print("\033[2J\033[H")
-		out("%s %s\n", bold(cyan("Recent chats")), dim("(Esc to cancel, Enter to select)"))
-		out("%s %s\n\n", dim("Filter:"), query)
-		if len(filtered) == 0 {
-			out("%s\n", dim("  No matches"))
-			return filtered
-		}
-
-		for i, c := range filtered {
-			cursor := "  "
-			lineStyle := func(s string) string { return s }
-			if i == selected {
-				cursor = yellow("➤ ")
-				lineStyle = bold
-			}
-			timeLabel := ""
-			if !c.LastActivity.IsZero() {
-				timeLabel = " " + dim(c.LastActivity.Format("15:04"))
-			}
-			out("%s%s %s%s\n", cursor, lineStyle(c.Label), dim("("+c.Target+")"), timeLabel)
-		}
-		return filtered
-	}
-
-	filtered := render()
-	buf := make([]byte, 1)
-	for {
-		n, err := os.Stdin.Read(buf)
-		if err != nil || n == 0 {
-			break
-		}
-
-		b := buf[0]
-		switch b {
-		case 3: // Ctrl+C
-			fmt.Print("\033[2J\033[H")
-			out("\n")
-			return
-		case 13: // Enter
-			fmt.Print("\033[2J\033[H")
-			if len(filtered) > 0 {
-				chosen := filtered[selected]
-				cli.setCurrentChat(chosen.Target, chosen.Label)
-				out("\n%s %s %s\n", green("✓ Active chat:"), bold(chosen.Label), dim("("+chosen.Target+")"))
-			}
-			out("\n")
-			return
-		case 27: // ESC or arrows
-			next, ok := readByteWithTimeout(fd, 15)
-			if !ok {
-				fmt.Print("\033[2J\033[H")
-				out("\n")
-				return
-			}
-			if next != '[' {
-				fmt.Print("\033[2J\033[H")
-				out("\n")
-				return
-			}
-			arrow, ok := readByteWithTimeout(fd, 15)
-			if !ok {
-				fmt.Print("\033[2J\033[H")
-				out("\n")
-				return
-			}
-			switch arrow {
-			case 'A':
-				if selected > 0 {
-					selected--
-				}
-			case 'B':
-				if selected < len(filtered)-1 {
-					selected++
-				}
-			default:
-				fmt.Print("\033[2J\033[H")
-				out("\n")
-				return
-			}
-		case 127, 8: // backspace
-			if len(query) > 0 {
-				query = query[:len(query)-1]
-			}
-		default:
-			if b >= 32 && b <= 126 {
-				query += string(b)
-			}
-		}
-		filtered = render()
-	}
-	fmt.Print("\033[2J\033[H")
-	out("\n")
 }
 
 func (cli *TelegramCLI) commandLoop(ctx context.Context) {
@@ -350,14 +221,26 @@ func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 					fmt.Println(yellow("Usage:"), "\\find <prefix>")
 					continue
 				}
-				matches := cli.findMatchingUsernames(parts[1], 10)
+				matches := cli.cachedChatsForUsernamePrefix(parts[1], 10)
 				if len(matches) == 0 {
 					fmt.Printf("No cached usernames found starting with %q.\n", parts[1])
-				} else {
+					continue
+				}
+
+				result := cli.pickCachedChat("Find usernames", parts[1], matches)
+				if !result.Interactive {
 					fmt.Println("Cached matches:")
-					for _, m := range matches {
-						fmt.Println(" ", m)
+					for _, match := range matches {
+						fmt.Println(" ", match.Target)
 					}
+					continue
+				}
+				if result.Cancelled {
+					fmt.Println(dim("Find cancelled."))
+					continue
+				}
+				if result.Chosen != nil {
+					cli.activateCachedChat(*result.Chosen, false)
 				}
 			case "\\msg":
 				if len(parts) < 3 {
@@ -387,7 +270,36 @@ func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 					fmt.Println(yellow("Usage:"), "\\to <id|@user>")
 					continue
 				}
-				cli.switchActiveChat(ctx, parts[1], false)
+
+				target := parts[1]
+				if chat, err := cli.resolveChatTarget(ctx, target); err == nil {
+					cli.activateCachedChat(chat, false)
+					continue
+				}
+
+				matches := cli.cachedChatsForPartial(target, 10)
+				if len(matches) == 0 {
+					fmt.Printf("No cached chat matches %q. Try \\contacts, \\find <prefix>, or an exact @username/user id.\n", target)
+					continue
+				}
+				if len(matches) == 1 {
+					cli.activateCachedChat(matches[0], false)
+					continue
+				}
+
+				result := cli.pickCachedChat("Switch chat", target, matches)
+				if !result.Interactive {
+					fmt.Printf("Multiple cached chat matches for %q:\n", target)
+					cli.printChatCandidates("Suggestions", matches)
+					continue
+				}
+				if result.Cancelled {
+					fmt.Println(dim("Chat switch cancelled."))
+					continue
+				}
+				if result.Chosen != nil {
+					cli.activateCachedChat(*result.Chosen, false)
+				}
 			case "\\here":
 				cli.showActiveChat()
 			case "\\chats":
