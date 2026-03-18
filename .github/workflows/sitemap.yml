@@ -1,0 +1,70 @@
+name: Verify sitemap for Pages build
+
+on:
+  push:
+    branches:
+      # Replace [ACTIVE_BRANCH] with the same branch used in pages.yml.
+      # Keep both workflows aligned so the Pages deploy only runs after this branch is tested.
+      - '[ACTIVE_BRANCH]'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sitemap-[ACTIVE_BRANCH]
+  cancel-in-progress: true
+
+jobs:
+  branch-guard:
+    name: Verify active branch placeholder and ref
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prevent accidental validation on the wrong branch
+        env:
+          ACTIVE_BRANCH: "[ACTIVE_BRANCH]"
+        run: |
+          if [ "$ACTIVE_BRANCH" = '[ACTIVE_BRANCH]' ]; then
+            echo "Replace [ACTIVE_BRANCH] in .github/workflows/sitemap.yml before enabling this workflow."
+            exit 1
+          fi
+
+          if [ "${GITHUB_REF}" != "refs/heads/${ACTIVE_BRANCH}" ]; then
+            echo "This workflow only validates refs/heads/${ACTIVE_BRANCH}. Current ref: ${GITHUB_REF}"
+            exit 1
+          fi
+
+  verify-sitemap:
+    name: Build Jekyll output and verify sitemap.xml
+    needs: branch-guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./_site
+
+      - name: Verify sitemap.xml exists in the built site
+        run: |
+          if [ ! -f ./_site/sitemap.xml ]; then
+            echo "Expected ./_site/sitemap.xml after Jekyll build."
+            echo "Enable the jekyll-sitemap plugin or add a sitemap generator before deployment."
+            exit 1
+          fi
+
+      - name: Upload built site for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-site-with-sitemap
+          path: ./_site
+
+# Branch protection note:
+# After substituting [ACTIVE_BRANCH], make this workflow a required status check on that branch.
+# That prevents unverified Pages changes from merging and accidentally deploying.
