@@ -1,0 +1,38 @@
+# Binaries
+termigram
+modern-telegram-cli
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output from the coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Config files with secrets
+config.json
+*.key
+*.secret
+
+# Session files
+~/.termigram/
+session.json
+
+# Build artifacts
+dist/
+build/
