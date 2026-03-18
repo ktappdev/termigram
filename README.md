@@ -1,4 +1,4 @@
-# Modern Telegram CLI
+# termigram
 
 A lightweight Telegram command-line client written in Go using MTProto (`gotd/td`).
 
@@ -40,19 +40,32 @@ export TELEGRAM_SESSION_PATH=/custom/session/path.json
 If `session_path` is empty, default is:
 
 ```text
-~/.modern-telegram-cli/session.json
+~/.termigram/session.json
 ```
 
 ## Build
 
+Use one command:
+
 ```bash
-go build .
+make build
+```
+
+`make build` runs `./build.sh`, which automatically:
+- uses the current git tag/describe value as app version (when tags exist)
+- falls back to `dev` when no git tags are available
+- injects the version via ldflags
+
+Optional manual override:
+
+```bash
+make build-version VERSION=1.2.3
 ```
 
 ## Interactive mode
 
 ```bash
-./modern-telegram-cli
+./termigram
 ```
 
 On first run, it prompts for phone number and verification code. Later runs reuse the saved session.
@@ -71,26 +84,26 @@ Interactive commands:
 Root help/version:
 
 ```bash
-./modern-telegram-cli --help
-./modern-telegram-cli -h
-./modern-telegram-cli --version
-./modern-telegram-cli -v
+./termigram --help
+./termigram -h
+./termigram --version
+./termigram -v
 ```
 
 Per-command help:
 
 ```bash
-./modern-telegram-cli send --help
-./modern-telegram-cli get --help
-./modern-telegram-cli contacts --help
-./modern-telegram-cli me --help
-./modern-telegram-cli find --help
+./termigram send --help
+./termigram get --help
+./termigram contacts --help
+./termigram me --help
+./termigram find --help
 ```
 
 ## One-shot CLI mode
 
 ```bash
-./modern-telegram-cli <command> [options] [arguments]
+./termigram <command> [options] [arguments]
 ```
 
 Commands:
@@ -112,11 +125,11 @@ Note: place flags before positional arguments (Go flag parsing behavior).
 Examples:
 
 ```bash
-./modern-telegram-cli send @ken "Hello from script"
-./modern-telegram-cli get --limit 20 @ken
-./modern-telegram-cli contacts --json
-./modern-telegram-cli me
-./modern-telegram-cli find ken
+./termigram send @ken "Hello from script"
+./termigram get --limit 20 @ken
+./termigram contacts --json
+./termigram me
+./termigram find ken
 ```
 
 Note: run interactive mode once to authenticate before using one-shot commands.
@@ -130,7 +143,7 @@ MIT
 The application includes a full-featured terminal user interface built with [Bubble Tea](https://github.com/charmbracelet/bubbletea). Launch the UI by running the application without arguments:
 
 ```bash
-./modern-telegram-cli
+./termigram
 ```
 
 ### Features Overview
@@ -235,3 +248,4 @@ The UI uses Telegram Desktop's dark theme:
 | ✓✓ | Message read (green when read by recipient) |
 | ● (green) | User is online |
 | "typing..." | User is currently typing |
+# termigram
