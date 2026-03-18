@@ -9,9 +9,13 @@ import (
 	"time"
 )
 
-// appVersion is overridden at build time via ldflags:
-// go build -ldflags "-X main.appVersion=v1.2.3"
-var appVersion = "dev"
+// Build-time variables overridden via ldflags, e.g.:
+// go build -ldflags "-X main.appVersion=v1.2.3 -X main.telegramAppIDBaked=123456 -X main.telegramAppHashBaked=abcdef"
+var (
+	appVersion           = "dev"
+	telegramAppIDBaked   = ""
+	telegramAppHashBaked = ""
+)
 
 func main() {
 	remainingArgs, rootMode, handled, err := parseRootFlags(os.Args[1:])
@@ -57,15 +61,15 @@ func main() {
 
 func printConfigErrorAndExit(err error) {
 	fmt.Println("Error:", err)
-	fmt.Println("\nUser mode setup steps:")
-	fmt.Println("1. Go to https://my.telegram.org")
-	fmt.Println("2. Log in with your phone number")
-	fmt.Println("3. Create a new application")
-	fmt.Println("4. Copy the app_id and app_hash")
-	fmt.Printf("\nThen place %s next to the termigram executable (for local builds, that's typically this directory) by copying %s.example, or set environment variables:\n", localConfigFile, localConfigFile)
-	fmt.Println("  cp /path/to/termigram/config.json.example /path/to/termigram/config.json")
-	fmt.Println("  export TELEGRAM_APP_ID=your_app_id")
-	fmt.Println("  export TELEGRAM_APP_HASH=your_app_hash")
+	fmt.Println("\nCredential lookup order: TELEGRAM_APP_ID/TELEGRAM_APP_HASH env vars → config.json → baked-in build credentials")
+	fmt.Println("\nIf this build does not include baked-in credentials, set up user mode with one of these options:")
+	fmt.Printf("1. Copy %s.example next to the termigram executable as %s and add your Telegram app_id/app_hash\n", localConfigFile, localConfigFile)
+	fmt.Println("   cp /path/to/termigram/config.json.example /path/to/termigram/config.json")
+	fmt.Println("2. Or export environment variables:")
+	fmt.Println("   export TELEGRAM_APP_ID=your_app_id")
+	fmt.Println("   export TELEGRAM_APP_HASH=your_app_hash")
+	fmt.Println("3. Or build termigram with baked-in credentials (see CREDENTIALS.md)")
+	fmt.Println("\nNeed your own credentials? Create them at https://my.telegram.org")
 	os.Exit(1)
 }
 

@@ -33,12 +33,37 @@ func defaultSessionPath() (string, error) {
 	return filepath.Join(homeDir, ".termigram", "session.json"), nil
 }
 
+func bakedConfig() (Config, error) {
+	cfg := Config{TelegramAppHash: strings.TrimSpace(telegramAppHashBaked)}
+
+	appIDStr := strings.TrimSpace(telegramAppIDBaked)
+	if appIDStr != "" {
+		appID, err := strconv.Atoi(appIDStr)
+		if err != nil {
+			return Config{}, fmt.Errorf("invalid baked Telegram app id %q: %w", appIDStr, err)
+		}
+		cfg.TelegramAppID = appID
+	}
+
+	if (cfg.TelegramAppID == 0) != (cfg.TelegramAppHash == "") {
+		return Config{}, fmt.Errorf("incomplete baked Telegram credentials: set both telegramAppIDBaked and telegramAppHashBaked via ldflags")
+	}
+
+	return cfg, nil
+}
+
 func defaultConfig() (Config, error) {
 	sessionPath, err := defaultSessionPath()
 	if err != nil {
 		return Config{}, err
 	}
-	return Config{SessionPath: sessionPath}, nil
+
+	cfg, err := bakedConfig()
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.SessionPath = sessionPath
+	return cfg, nil
 }
 
 func (c Config) HasUserMode() bool {
@@ -52,7 +77,7 @@ func (c Config) ResolveMode(requested string, interactive bool) (string, error) 
 	}
 
 	if !c.HasUserMode() {
-		return "", fmt.Errorf("user credentials not configured: set telegram_app_id and telegram_app_hash in config.json or via TELEGRAM_APP_ID/TELEGRAM_APP_HASH environment variables")
+		return "", fmt.Errorf("user credentials not configured: provide telegram_app_id and telegram_app_hash via TELEGRAM_APP_ID/TELEGRAM_APP_HASH, %s, or baked-in build credentials", localConfigFile)
 	}
 	return "user", nil
 }
@@ -96,11 +121,11 @@ func loadConfig() (Config, error) {
 	cfg.SessionPath = strings.TrimSpace(cfg.SessionPath)
 
 	if (cfg.TelegramAppID == 0) != (cfg.TelegramAppHash == "") {
-		return Config{}, fmt.Errorf("incomplete user credentials: set both telegram_app_id and telegram_app_hash")
+		return Config{}, fmt.Errorf("incomplete user credentials: set both telegram_app_id and telegram_app_hash (via env, %s, or baked-in build credentials)", configPath)
 	}
 
 	if !cfg.HasUserMode() {
-		return Config{}, fmt.Errorf("missing Telegram credentials: set telegram_app_id and telegram_app_hash in %s or via TELEGRAM_APP_ID/TELEGRAM_APP_HASH environment variables", configPath)
+		return Config{}, fmt.Errorf("missing Telegram credentials: provide telegram_app_id and telegram_app_hash via TELEGRAM_APP_ID/TELEGRAM_APP_HASH, %s, or baked-in build credentials", configPath)
 	}
 
 	if cfg.SessionPath == "" {

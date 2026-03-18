@@ -4,7 +4,7 @@ A lightweight Telegram command-line client written in Go using MTProto (`gotd/td
 
 ## Get started in 2 minutes
 
-This is the fastest path for most users: install → authenticate → chat.
+This is the fastest path for most users: install → run → authenticate → chat.
 
 ### 1) Install
 
@@ -22,7 +22,7 @@ Option B (from a local clone):
 make build
 ```
 
-### 2) Authenticate and start chatting
+### 2) Run termigram
 
 ```bash
 ./termigram
@@ -417,7 +417,13 @@ make build-version VERSION=1.2.3
 
 ## Advanced configuration
 
-termigram works out of the box with interactive authentication. For advanced use cases, you can configure:
+Most released builds can run immediately using baked-in Telegram API credentials. Credential lookup order is:
+
+1. `TELEGRAM_APP_ID` / `TELEGRAM_APP_HASH`
+2. `config.json` next to the executable
+3. baked-in build credentials
+
+This keeps normal usage simple while still letting developers and maintainers override credentials when needed.
 
 ### Session storage
 
@@ -427,10 +433,25 @@ By default, sessions are stored at `~/.termigram/session.json`. Override with:
 export TELEGRAM_SESSION_PATH=/custom/path/session.json
 ```
 
+### Override Telegram API credentials
+
+Use environment variables to override any configured or baked-in credentials:
+
+```bash
+export TELEGRAM_APP_ID=your_app_id
+export TELEGRAM_APP_HASH=your_app_hash
+```
+
+Or create `config.json` next to the executable by copying `config.json.example` and filling in your own values.
+
+Need your own Telegram app credentials? Create them at [https://my.telegram.org](https://my.telegram.org).
+
 ### Environment variables
 
 | Variable | Description |
 |----------|-------------|
+| `TELEGRAM_APP_ID` | Override Telegram app id |
+| `TELEGRAM_APP_HASH` | Override Telegram app hash |
 | `TELEGRAM_SESSION_PATH` | Custom session file location |
 
 ---

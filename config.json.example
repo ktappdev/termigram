@@ -1,5 +1,7 @@
 {
-  "telegram_app_id": 123456,
-  "telegram_app_hash": "your_telegram_app_hash_here",
+  "_comment": "Optional: TELEGRAM_APP_ID/TELEGRAM_APP_HASH env vars override this file, and this file overrides baked-in build credentials.",
+  "_comment_credentials": "Leave telegram_app_id as 0 and telegram_app_hash empty to use baked-in credentials when available.",
+  "telegram_app_id": 0,
+  "telegram_app_hash": "",
   "session_path": ""
 }
