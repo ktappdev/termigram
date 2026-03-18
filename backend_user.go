@@ -175,32 +175,11 @@ func (b *UserBackend) GetContacts(ctx context.Context) ([]ContactOutput, error) 
 		return nil, fmt.Errorf("user backend is not initialized")
 	}
 
-	contacts, err := b.cli.api.ContactsGetContacts(ctx, 0)
+	contacts, err := b.cli.fetchContacts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contacts: %w", err)
 	}
-
-	out := make([]ContactOutput, 0)
-	switch c := contacts.(type) {
-	case *tg.ContactsContacts:
-		out = make([]ContactOutput, 0, len(c.Users))
-		for _, user := range c.Users {
-			u, ok := user.(*tg.User)
-			if !ok {
-				continue
-			}
-			b.cli.cacheUser(u)
-			out = append(out, ContactOutput{
-				UserID:    u.ID,
-				FirstName: u.FirstName,
-				LastName:  u.LastName,
-				Username:  u.Username,
-				Phone:     u.Phone,
-			})
-		}
-	}
-
-	return out, nil
+	return contacts, nil
 }
 
 func (b *UserBackend) GetDialogs(ctx context.Context, limit int) ([]DialogOutput, error) {

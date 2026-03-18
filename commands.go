@@ -16,7 +16,7 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println(bold(cyan("Commands")))
 	fmt.Println("  \\me                 Show current user info")
-	fmt.Println("  \\contacts           List contacts")
+	fmt.Println("  \\contacts           Browse contacts by page and switch on selection")
 	fmt.Println("  \\find <query>       Find cached chats/usernames and switch via selector")
 	fmt.Println("  \\msg <id|@user> <text>  Send message and enter chat mode")
 	fmt.Println("  \\to <id|@user>      Switch active chat")

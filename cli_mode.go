@@ -16,6 +16,7 @@ type CLICommand struct {
 	Args    []string
 	JSON    bool
 	Limit   int
+	Offset  int
 	Timeout time.Duration
 }
 
@@ -27,7 +28,7 @@ func RunCLICommand(ctx context.Context, backend TelegramBackend, cmd CLICommand)
 	case "get":
 		return cmdGet(ctx, backend, cmd.Args, cmd.Limit, cmd.JSON)
 	case "contacts":
-		return cmdContacts(ctx, backend, cmd.JSON)
+		return cmdContacts(ctx, backend, cmd.Limit, cmd.Offset, cmd.JSON)
 	case "me":
 		return cmdMe(ctx, backend, cmd.JSON)
 	case "find":
@@ -142,7 +143,7 @@ func cmdGet(ctx context.Context, backend TelegramBackend, args []string, limit i
 	return nil
 }
 
-func cmdContacts(ctx context.Context, backend TelegramBackend, asJSON bool) error {
+func cmdContacts(ctx context.Context, backend TelegramBackend, limit int, offset int, asJSON bool) error {
 	contactsBackend, ok := backend.(ContactsBackend)
 	if !ok {
 		return fmt.Errorf("backend does not support contacts")
@@ -153,10 +154,19 @@ func cmdContacts(ctx context.Context, backend TelegramBackend, asJSON bool) erro
 		return err
 	}
 
+	page := paginateContacts(contacts, offset, limit)
+
 	if asJSON {
 		output := CLIOutput{Success: true, Data: map[string]interface{}{
-			"count":    len(contacts),
-			"contacts": contacts,
+			"count":       len(page.Items),
+			"total":       page.Total,
+			"limit":       page.Limit,
+			"offset":      page.Offset,
+			"page":        page.Page,
+			"total_pages": page.TotalPages,
+			"has_next":    page.Offset+len(page.Items) < page.Total,
+			"has_prev":    page.Offset > 0,
+			"contacts":    page.Items,
 		}}
 		jsonOut, _ := json.MarshalIndent(output, "", "  ")
 		fmt.Println(string(jsonOut))
@@ -164,15 +174,25 @@ func cmdContacts(ctx context.Context, backend TelegramBackend, asJSON bool) erro
 	}
 
 	fmt.Println("\n--- Contacts ---")
-	for _, c := range contacts {
-		username := ""
-		if c.Username != "" {
-			username = fmt.Sprintf(" (@%s)", c.Username)
-		}
-		fmt.Printf("%d: %s %s%s\n", c.UserID, c.FirstName, c.LastName, username)
-	}
-	if len(contacts) == 0 {
+	if page.Total == 0 {
 		fmt.Println("No contacts found")
+		fmt.Println("----------------")
+		return nil
+	}
+
+	fmt.Printf("Showing %d-%d of %d (page %d/%d)\n", page.Offset+1, page.Offset+len(page.Items), page.Total, page.Page, page.TotalPages)
+	for _, c := range page.Items {
+		fmt.Printf("%d: %s (%s)\n", c.UserID, contactDisplayName(c), contactTarget(c))
+	}
+	if page.Offset+len(page.Items) < page.Total {
+		fmt.Printf("Next page: --offset %d --limit %d\n", page.Offset+page.Limit, page.Limit)
+	}
+	if page.Offset > 0 {
+		prevOffset := page.Offset - page.Limit
+		if prevOffset < 0 {
+			prevOffset = 0
+		}
+		fmt.Printf("Previous page: --offset %d --limit %d\n", prevOffset, page.Limit)
 	}
 	fmt.Println("----------------")
 	return nil
