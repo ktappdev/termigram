@@ -46,10 +46,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	if selectedMode != "user" {
-		fmt.Fprintln(os.Stderr, "Error: interactive mode only supports --mode user")
-		os.Exit(1)
-	}
+	_ = selectedMode // Always "user" after ResolveMode succeeds
 
 	cli := NewTelegramCLI(cfg.TelegramAppID, cfg.TelegramAppHash, cfg.SessionPath)
 	if err := cli.Run(); err != nil {
@@ -69,7 +66,6 @@ func printConfigErrorAndExit(err error) {
 	fmt.Println("  cp /path/to/termigram/config.json.example /path/to/termigram/config.json")
 	fmt.Println("  export TELEGRAM_APP_ID=your_app_id")
 	fmt.Println("  export TELEGRAM_APP_HASH=your_app_hash")
-	fmt.Println("  export TELEGRAM_BOT_TOKEN=your_bot_token")
 	os.Exit(1)
 }
 
@@ -84,7 +80,7 @@ func parseRootFlags(args []string) (remaining []string, mode string, handled boo
 	fs.BoolVar(&help, "h", false, "Show help")
 	fs.BoolVar(&version, "version", false, "Show version")
 	fs.BoolVar(&version, "v", false, "Show version")
-	fs.StringVar(&modeFlag, "mode", "", "Auth mode: user|bot")
+	fs.StringVar(&modeFlag, "mode", "", "Auth mode: user (default: user)")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, "", false, err
@@ -129,7 +125,7 @@ func runCLIMode(cfg Config, argv []string, rootMode string) {
 	jsonFlag := fs.Bool("json", false, "Output as JSON")
 	limitFlag := fs.Int("limit", 10, "Limit for get command")
 	timeoutFlag := fs.Duration("timeout", 30*time.Second, "Request timeout")
-	modeFlag := fs.String("mode", "", "Auth mode: user|bot")
+	modeFlag := fs.String("mode", "", "Auth mode: user (default: user)")
 
 	fs.Parse(args)
 	positionalArgs := fs.Args()
@@ -153,10 +149,7 @@ func runCLIMode(cfg Config, argv []string, rootMode string) {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	if selectedMode == "bot" {
-		fmt.Fprintln(os.Stderr, "Error: --mode bot is configured but bot backend is not available in this build")
-		os.Exit(1)
-	}
+	_ = selectedMode // Only user mode is supported
 
 	cmd := CLICommand{
 		Name:    command,
@@ -201,16 +194,16 @@ func printRootHelp() {
 	fmt.Println(`termigram - Telegram MTProto CLI
 
 Usage:
-  ./termigram [--help|-h] [--version|-v] [--mode user|bot]
-  ./termigram [--mode user]                # interactive mode
-  ./termigram <command> [options]          # one-shot mode
+  ./termigram [--help|-h] [--version|-v]
+  ./termigram                                          # interactive mode
+  ./termigram <command> [options]                      # one-shot mode
 
 One-shot commands:
-  send [--mode user|bot] [--json] [--timeout 30s] <user_id|@username> <message>
-  get [--mode user|bot] [--json] [--timeout 30s] [--limit N] <user_id|@username>
-  contacts [--mode user|bot] [--json] [--timeout 30s]
-  me [--mode user|bot] [--json] [--timeout 30s]
-  find [--mode user|bot] [--json] [--timeout 30s] <prefix>
+  send [--json] [--timeout 30s] <user_id|@username> <message>
+  get [--json] [--timeout 30s] [--limit N] <user_id|@username>
+  contacts [--json] [--timeout 30s]
+  me [--json] [--timeout 30s]
+  find [--json] [--timeout 30s] <prefix>
 
 Examples:
   ./termigram
@@ -222,7 +215,6 @@ Examples:
 Global flags:
   -h, --help       Show this help
   -v, --version    Show app version
-  --mode           Auth mode: user|bot
 
 Command help:
   ./termigram <command> --help`)
@@ -234,7 +226,7 @@ func printCommandHelp(command string) {
 		fmt.Println(`send - send a message to a user
 
 Usage:
-  ./termigram send [--mode user|bot] [--json] [--timeout 30s] <user_id|@username> <message>
+  ./termigram send [--json] [--timeout 30s] <user_id|@username> <message>
 
 Examples:
   ./termigram send @ken "Hello from script"
@@ -243,7 +235,7 @@ Examples:
 		fmt.Println(`get - fetch recent messages from a user
 
 Usage:
-  ./termigram get [--mode user|bot] [--json] [--timeout 30s] [--limit N] <user_id|@username>
+  ./termigram get [--json] [--timeout 30s] [--limit N] <user_id|@username>
 
 Flags:
   --limit N   Number of messages to fetch (default 10)
@@ -255,7 +247,7 @@ Examples:
 		fmt.Println(`contacts - list contacts
 
 Usage:
-  ./termigram contacts [--mode user|bot] [--json] [--timeout 30s]
+  ./termigram contacts [--json] [--timeout 30s]
 
 Examples:
   ./termigram contacts
@@ -264,7 +256,7 @@ Examples:
 		fmt.Println(`me - show current account info
 
 Usage:
-  ./termigram me [--mode user|bot] [--json] [--timeout 30s]
+  ./termigram me [--json] [--timeout 30s]
 
 Examples:
   ./termigram me
@@ -273,7 +265,7 @@ Examples:
 		fmt.Println(`find - find cached usernames by prefix
 
 Usage:
-  ./termigram find [--mode user|bot] [--json] [--timeout 30s] <prefix>
+  ./termigram find [--json] [--timeout 30s] <prefix>
 
 Examples:
   ./termigram find ken

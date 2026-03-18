@@ -20,10 +20,9 @@ func localConfigPath() (string, error) {
 }
 
 type Config struct {
-	TelegramAppID    int    `json:"telegram_app_id"`
-	TelegramAppHash  string `json:"telegram_app_hash"`
-	TelegramBotToken string `json:"telegram_bot_token,omitempty"`
-	SessionPath      string `json:"session_path,omitempty"`
+	TelegramAppID   int    `json:"telegram_app_id"`
+	TelegramAppHash string `json:"telegram_app_hash"`
+	SessionPath     string `json:"session_path,omitempty"`
 }
 
 func defaultSessionPath() (string, error) {
@@ -46,52 +45,16 @@ func (c Config) HasUserMode() bool {
 	return c.TelegramAppID != 0 && c.TelegramAppHash != ""
 }
 
-func (c Config) HasBotMode() bool {
-	return c.TelegramBotToken != ""
-}
-
 func (c Config) ResolveMode(requested string, interactive bool) (string, error) {
 	mode := strings.ToLower(strings.TrimSpace(requested))
-	if mode != "" && mode != "user" && mode != "bot" {
-		return "", fmt.Errorf("invalid mode %q (expected user|bot)", requested)
+	if mode != "" && mode != "user" {
+		return "", fmt.Errorf("invalid mode %q (only 'user' mode is supported)", requested)
 	}
 
-	if interactive {
-		if mode == "bot" {
-			return "", fmt.Errorf("interactive mode only supports --mode user")
-		}
-		if c.HasUserMode() {
-			return "user", nil
-		}
-		if c.HasBotMode() {
-			return "", fmt.Errorf("interactive mode requires user credentials; only bot mode is configured")
-		}
-		return "", fmt.Errorf("no authentication mode configured")
+	if !c.HasUserMode() {
+		return "", fmt.Errorf("user credentials not configured: set telegram_app_id and telegram_app_hash in config.json or via TELEGRAM_APP_ID/TELEGRAM_APP_HASH environment variables")
 	}
-
-	if mode == "user" {
-		if !c.HasUserMode() {
-			return "", fmt.Errorf("user mode requested but user credentials are not configured")
-		}
-		return "user", nil
-	}
-	if mode == "bot" {
-		if !c.HasBotMode() {
-			return "", fmt.Errorf("bot mode requested but telegram_bot_token is not configured")
-		}
-		return "bot", nil
-	}
-
-	if c.HasUserMode() && c.HasBotMode() {
-		return "", fmt.Errorf("both user and bot credentials are configured; specify --mode user|bot")
-	}
-	if c.HasUserMode() {
-		return "user", nil
-	}
-	if c.HasBotMode() {
-		return "bot", nil
-	}
-	return "", fmt.Errorf("no authentication mode configured")
+	return "user", nil
 }
 
 func loadConfig() (Config, error) {
@@ -125,27 +88,22 @@ func loadConfig() (Config, error) {
 		cfg.TelegramAppHash = appHash
 	}
 
-	if botToken := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")); botToken != "" {
-		cfg.TelegramBotToken = botToken
-	}
-
 	if sessionPath := strings.TrimSpace(os.Getenv("TELEGRAM_SESSION_PATH")); sessionPath != "" {
 		cfg.SessionPath = sessionPath
 	}
 
 	cfg.TelegramAppHash = strings.TrimSpace(cfg.TelegramAppHash)
-	cfg.TelegramBotToken = strings.TrimSpace(cfg.TelegramBotToken)
 	cfg.SessionPath = strings.TrimSpace(cfg.SessionPath)
 
 	if (cfg.TelegramAppID == 0) != (cfg.TelegramAppHash == "") {
 		return Config{}, fmt.Errorf("incomplete user credentials: set both telegram_app_id and telegram_app_hash")
 	}
 
-	if !cfg.HasUserMode() && !cfg.HasBotMode() {
-		return Config{}, fmt.Errorf("missing Telegram credentials: set user credentials (telegram_app_id + telegram_app_hash) and/or telegram_bot_token in %s or via TELEGRAM_APP_ID/TELEGRAM_APP_HASH/TELEGRAM_BOT_TOKEN", configPath)
+	if !cfg.HasUserMode() {
+		return Config{}, fmt.Errorf("missing Telegram credentials: set telegram_app_id and telegram_app_hash in %s or via TELEGRAM_APP_ID/TELEGRAM_APP_HASH environment variables", configPath)
 	}
 
-	if cfg.HasUserMode() && cfg.SessionPath == "" {
+	if cfg.SessionPath == "" {
 		cfg.SessionPath, err = defaultSessionPath()
 		if err != nil {
 			return Config{}, err

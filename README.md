@@ -95,12 +95,12 @@ Select a chat with arrows + Enter, then just type messages directly.
 Use termigram non-interactively for scripts, cron jobs, and AI agents.
 
 ```bash
-./termigram <command> [--mode user|bot] [--json] [--timeout 30s] [command flags] [arguments]
+./termigram <command> [--json] [--timeout 30s] [command flags] [arguments]
 ```
 
 #### Authentication prerequisite (important)
 
-Before one-shot commands work in `--mode user`, run interactive once and complete phone login:
+Before one-shot commands work, run interactive once and complete phone login:
 
 ```bash
 ./termigram
@@ -118,7 +118,6 @@ That creates/reuses a local session (default: `~/.termigram/session.json`).
 
 #### Flags and options
 
-- `--mode user|bot` (root or per-command): auth mode to use
 - `--json`: machine-readable output envelope (`success`, `data`, `error`)
 - `--timeout 30s`: command timeout (Go duration syntax, e.g. `10s`, `1m`)
 - `--limit N`: only for `get` (default `10`)
