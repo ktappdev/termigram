@@ -49,24 +49,6 @@ func (cli *TelegramCLI) activateCachedChat(chat CachedChat, silent bool) {
 	}
 }
 
-func (cli *TelegramCLI) cachedChatsForUsernamePrefix(prefix string, limit int) []CachedChat {
-	prefix = normalizeUsername(prefix)
-	if prefix == "" {
-		return nil
-	}
-
-	matches := make([]CachedChat, 0)
-	for _, chat := range cli.listCachedChats(0) {
-		if strings.HasPrefix(chat.Target, "@") && strings.HasPrefix(normalizeUsername(chat.Target), prefix) {
-			matches = append(matches, chat)
-		}
-	}
-	if limit > 0 && len(matches) > limit {
-		matches = matches[:limit]
-	}
-	return matches
-}
-
 func (cli *TelegramCLI) cachedChatsForPartial(query string, limit int) []CachedChat {
 	query = strings.TrimSpace(query)
 	if query == "" {
@@ -95,7 +77,7 @@ func (cli *TelegramCLI) cachedChatsForPartial(query string, limit int) []CachedC
 			score = 2
 		case strings.Contains(label, rawQuery):
 			score = 3
-		case fuzzyMatch(query, chat.Label+" "+chat.Target):
+		case fuzzyMatch(query, chat.Label+" "+chat.Target+" "+chat.LastMessage):
 			score = 4
 		}
 
@@ -105,7 +87,10 @@ func (cli *TelegramCLI) cachedChatsForPartial(query string, limit int) []CachedC
 	}
 
 	sort.SliceStable(matches, func(i, j int) bool {
-		return matches[i].score < matches[j].score
+		if matches[i].score != matches[j].score {
+			return matches[i].score < matches[j].score
+		}
+		return strings.ToLower(matches[i].chat.Label) < strings.ToLower(matches[j].chat.Label)
 	})
 
 	results := make([]CachedChat, 0, len(matches))
@@ -123,6 +108,31 @@ func (cli *TelegramCLI) printChatCandidates(title string, chats []CachedChat) {
 	for _, c := range chats {
 		fmt.Printf("  %s %s\n", bold(c.Label), dim("("+c.Target+")"))
 	}
+}
+
+func (cli *TelegramCLI) selectCachedChat(title string, initialQuery string, chats []CachedChat, emptyMessage string, cancelMessage string, nonInteractiveTitle string) (*CachedChat, bool) {
+	if len(chats) == 0 {
+		fmt.Println(dim(emptyMessage))
+		return nil, false
+	}
+
+	result := cli.pickCachedChat(title, initialQuery, chats)
+	if !result.Interactive {
+		if nonInteractiveTitle != "" {
+			cli.printChatCandidates(nonInteractiveTitle, chats)
+		}
+		return nil, false
+	}
+	if result.Cancelled {
+		if cancelMessage != "" {
+			fmt.Println(dim(cancelMessage))
+		}
+		return nil, false
+	}
+	if result.Chosen == nil {
+		return nil, false
+	}
+	return result.Chosen, true
 }
 
 func (cli *TelegramCLI) pickCachedChat(title string, initialQuery string, chats []CachedChat) chatPickerResult {

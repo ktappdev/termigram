@@ -17,7 +17,7 @@ func printHelp() {
 	fmt.Println(bold(cyan("Commands")))
 	fmt.Println("  \\me                 Show current user info")
 	fmt.Println("  \\contacts           List contacts")
-	fmt.Println("  \\find <prefix>      Find usernames by prefix (cache)")
+	fmt.Println("  \\find <query>       Find cached chats/usernames and switch via selector")
 	fmt.Println("  \\msg <id|@user> <text>  Send message and enter chat mode")
 	fmt.Println("  \\to <id|@user>      Switch active chat")
 	fmt.Println("  \\here               Show active chat")
@@ -155,6 +155,10 @@ func (cli *TelegramCLI) runChatsPicker() {
 		cli.showCachedChats()
 		return
 	}
+	if result.Cancelled {
+		fmt.Println(dim("Chat switch cancelled."))
+		return
+	}
 	if result.Chosen != nil {
 		cli.activateCachedChat(*result.Chosen, false)
 	}
@@ -218,30 +222,23 @@ func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 				cli.showContacts(ctx)
 			case "\\find":
 				if len(parts) < 2 {
-					fmt.Println(yellow("Usage:"), "\\find <prefix>")
-					continue
-				}
-				matches := cli.cachedChatsForUsernamePrefix(parts[1], 10)
-				if len(matches) == 0 {
-					fmt.Printf("No cached usernames found starting with %q.\n", parts[1])
+					fmt.Println(yellow("Usage:"), "\\find <query>")
 					continue
 				}
 
-				result := cli.pickCachedChat("Find usernames", parts[1], matches)
-				if !result.Interactive {
-					fmt.Println("Cached matches:")
-					for _, match := range matches {
-						fmt.Println(" ", match.Target)
-					}
+				query := strings.Join(parts[1:], " ")
+				chosen, ok := cli.selectCachedChat(
+					"Find chat",
+					query,
+					cli.cachedChatsForPartial(query, 10),
+					fmt.Sprintf("No cached chats match %q.", query),
+					"Find cancelled.",
+					"Cached chat matches",
+				)
+				if !ok {
 					continue
 				}
-				if result.Cancelled {
-					fmt.Println(dim("Find cancelled."))
-					continue
-				}
-				if result.Chosen != nil {
-					cli.activateCachedChat(*result.Chosen, false)
-				}
+				cli.activateCachedChat(*chosen, false)
 			case "\\msg":
 				if len(parts) < 3 {
 					fmt.Println(yellow("Usage:"), "\\msg <user_id|@username> <message>")
@@ -278,28 +275,23 @@ func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 				}
 
 				matches := cli.cachedChatsForPartial(target, 10)
-				if len(matches) == 0 {
-					fmt.Printf("No cached chat matches %q. Try \\contacts, \\find <prefix>, or an exact @username/user id.\n", target)
-					continue
-				}
 				if len(matches) == 1 {
 					cli.activateCachedChat(matches[0], false)
 					continue
 				}
 
-				result := cli.pickCachedChat("Switch chat", target, matches)
-				if !result.Interactive {
-					fmt.Printf("Multiple cached chat matches for %q:\n", target)
-					cli.printChatCandidates("Suggestions", matches)
+				chosen, ok := cli.selectCachedChat(
+					"Switch chat",
+					target,
+					matches,
+					fmt.Sprintf("No cached chats match %q. Try \\contacts, \\find <query>, or an exact @username/user id.", target),
+					"Chat switch cancelled.",
+					"Cached chat matches",
+				)
+				if !ok {
 					continue
 				}
-				if result.Cancelled {
-					fmt.Println(dim("Chat switch cancelled."))
-					continue
-				}
-				if result.Chosen != nil {
-					cli.activateCachedChat(*result.Chosen, false)
-				}
+				cli.activateCachedChat(*chosen, false)
 			case "\\here":
 				cli.showActiveChat()
 			case "\\chats":
