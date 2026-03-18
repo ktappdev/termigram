@@ -124,3 +124,114 @@ Note: run interactive mode once to authenticate before using one-shot commands.
 ## License
 
 MIT
+
+## Terminal UI (TUI)
+
+The application includes a full-featured terminal user interface built with [Bubble Tea](https://github.com/charmbracelet/bubbletea). Launch the UI by running the application without arguments:
+
+```bash
+./modern-telegram-cli
+```
+
+### Features Overview
+
+- **Split-pane layout** - Chat list on the left (30%), message view on the right (70%)
+- **Real-time updates** - Connection status, typing indicators, and message delivery confirmations
+- **Message bubbles** - Styled incoming/outgoing messages with timestamps and read receipts
+- **Search** - Filter chats by name or username with `Ctrl+F`
+- **Unread indicators** - Badge showing unread message count per chat
+- **Draft support** - Automatically saves unsent messages
+- **Reply threads** - Visual indication when replying to specific messages
+- **Responsive design** - Adapts to terminal size, switches to mobile view on small screens
+- **Telegram dark theme** - Color scheme matching Telegram Desktop for familiarity
+
+### Keyboard Shortcuts
+
+#### Navigation
+
+| Shortcut | Action |
+|----------|--------|
+| `↑` / `↓` | Navigate chats / scroll messages |
+| `Enter` | Open selected chat / Send message |
+| `Esc` | Go back to chat list / Cancel reply |
+| `←` / `→` | Navigate between panels (desktop view) |
+| `Home` | Jump to first message |
+| `End` | Jump to latest message |
+
+#### Actions
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+C` | Quit application (from chat list) |
+| `Ctrl+N` | Start new conversation |
+| `Ctrl+F` | Focus search bar |
+| `Ctrl+Enter` | New line in message |
+| `Ctrl+\` | Toggle sidebar collapse |
+| `/` | Focus message input |
+| `?` | Show help |
+| `Tab` | Open attachment menu |
+
+#### Message Actions (in message view)
+
+| Shortcut | Action |
+|----------|--------|
+| `R` | Reply to message |
+| `F` | Forward message |
+| `D` | Delete message |
+| `Ctrl+C` | Copy message text |
+
+### Mouse Usage
+
+The UI supports mouse interaction when running in a terminal with mouse support:
+
+- **Click on chat** - Select and open a chat from the sidebar
+- **Scroll wheel** - Scroll through chat list or messages
+- **Click on input area** - Focus the message input field
+- **Click on buttons** - Interact with modal dialog buttons
+
+Note: Mouse support requires a terminal that supports mouse events (e.g., iTerm2, Kitty, Alacritty, or tmux with mouse enabled).
+
+### Responsive Layout
+
+The UI automatically adapts to terminal size:
+
+#### Desktop View (≥60 columns)
+- **Chat list**: 30% width on the left
+- **Message view**: 70% width on the right
+- **Input area**: Full width below messages
+- All panels visible simultaneously
+
+#### Mobile View (<60 columns)
+- **Single panel view** - Shows either chat list or messages
+- **Navigation**: Use `Enter` to open chat, `Esc` to return to chat list
+- **Full width** - Active panel uses entire terminal width
+- **Optimized for** - SSH sessions, small terminals, split windows
+
+#### Minimum Requirements
+- **Minimum width**: 40 columns (mobile view)
+- **Recommended**: 80+ columns for optimal desktop experience
+- **Minimum height**: 20 rows
+
+Resize your terminal to switch between layouts dynamically.
+
+### Color Scheme
+
+The UI uses Telegram Desktop's dark theme:
+
+- **Background**: Deep blue-gray (#17212b, #0e1621)
+- **Message bubbles**: Blue for incoming, dark for outgoing
+- **Text**: White for primary, gray for timestamps/metadata
+- **Accents**: Green for online status, blue for links, red for errors
+- **Status indicators**: Color-coded connection status (blue=connected, yellow=connecting, red=disconnected)
+
+### Status Indicators
+
+| Indicator | Meaning |
+|-----------|---------|
+| 🔵 Connected | Successfully connected to Telegram |
+| 🟡 Connecting | Establishing connection |
+| 🔴 Disconnected | Connection lost or failed |
+| ✓ | Message sent (delivered to server) |
+| ✓✓ | Message read (green when read by recipient) |
+| ● (green) | User is online |
+| "typing..." | User is currently typing |

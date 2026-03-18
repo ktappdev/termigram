@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/auth"
@@ -15,16 +17,21 @@ import (
 )
 
 type TelegramCLI struct {
-	client           *telegram.Client
-	api              *tg.Client
-	sender           *message.Sender
-	ctx              context.Context
-	cancel           context.CancelFunc
-	reader           *bufio.Reader
-	mu               sync.RWMutex
-	users            map[int64]*tg.User
-	usersByName      map[string]*tg.User // username -> user mapping
-	usernameByUserID map[int64]string
+	client            *telegram.Client
+	api               *tg.Client
+	sender            *message.Sender
+	ctx               context.Context
+	cancel            context.CancelFunc
+	reader            *bufio.Reader
+	mu                sync.RWMutex
+	users             map[int64]*tg.User
+	usersByName       map[string]*tg.User // username -> user mapping
+	usernameByUserID  map[int64]string
+	currentChatTarget string
+	currentChatLabel  string
+	chatLastActivity  map[string]time.Time
+	chatLastMessage   map[string]string
+	seenIncoming      map[string]time.Time
 }
 
 func NewTelegramCLI(appID int, appHash string, sessionPath string) *TelegramCLI {
@@ -38,6 +45,9 @@ func NewTelegramCLI(appID int, appHash string, sessionPath string) *TelegramCLI 
 		users:            make(map[int64]*tg.User),
 		usersByName:      make(map[string]*tg.User),
 		usernameByUserID: make(map[int64]string),
+		chatLastActivity: make(map[string]time.Time),
+		chatLastMessage:  make(map[string]string),
+		seenIncoming:     make(map[string]time.Time),
 	}
 
 	cli.client = telegram.NewClient(appID, appHash, telegram.Options{
@@ -85,9 +95,9 @@ func (cli *TelegramCLI) Run() error {
 		}
 		cli.cacheUser(self)
 
-		fmt.Printf("\nWelcome, %s %s!\n", self.FirstName, self.LastName)
-		fmt.Printf("Phone: %s\n", self.Phone)
-		fmt.Printf("User ID: %d\n\n", self.ID)
+		fmt.Printf("\n%s %s\n", green("● Connected"), bold("Telegram MTProto"))
+		fmt.Printf("%s %s %s\n", dim("Logged in as"), bold(strings.TrimSpace(self.FirstName+" "+self.LastName)), dim("@"+self.Username))
+		fmt.Printf("%s %d\n\n", dim("User ID:"), self.ID)
 
 		printHelp()
 
@@ -141,10 +151,16 @@ func (cli *TelegramCLI) processSingleUpdate(update tg.UpdateClass) {
 	switch upd := update.(type) {
 	case *tg.UpdateNewMessage:
 		if msg, ok := upd.GetMessage().(*tg.Message); ok {
+			if msg.GetOut() {
+				return
+			}
 			cli.printMessage(msg)
 		}
 	case *tg.UpdateNewChannelMessage:
 		if msg, ok := upd.GetMessage().(*tg.Message); ok {
+			if msg.GetOut() {
+				return
+			}
 			cli.printMessage(msg)
 		}
 	}

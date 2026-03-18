@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -103,6 +104,7 @@ func cmdGet(ctx context.Context, backend TelegramBackend, args []string, limit i
 	if err != nil {
 		return err
 	}
+	messages = chronologicalMessages(messages)
 
 	if asJSON {
 		data := map[string]interface{}{
@@ -241,6 +243,17 @@ func resolveTargetForOutput(ctx context.Context, backend TelegramBackend, target
 		return nil, nil
 	}
 	return resolver.ResolveTarget(ctx, target)
+}
+
+func chronologicalMessages(messages []MessageOutput) []MessageOutput {
+	ordered := append([]MessageOutput(nil), messages...)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		if ordered[i].Date == ordered[j].Date {
+			return ordered[i].ID < ordered[j].ID
+		}
+		return ordered[i].Date < ordered[j].Date
+	})
+	return ordered
 }
 
 // parseLimitArg parses --limit argument from args.
