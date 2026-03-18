@@ -10,6 +10,33 @@ import (
 	"github.com/gotd/td/tg"
 )
 
+func formatTranscriptBlock(header string, body string, accent func(string) string) string {
+	lines := strings.Split(body, "\n")
+	rendered := make([]string, 0, len(lines)+1)
+	rendered = append(rendered, header)
+	for _, line := range lines {
+		content := line
+		if strings.TrimSpace(content) == "" {
+			content = dim("(blank line)")
+		}
+		rendered = append(rendered, fmt.Sprintf("  %s %s", accent("│"), content))
+	}
+	return strings.Join(rendered, "\n")
+}
+
+func outgoingTranscriptHeader(ts string, displayName string, targetLabel string) string {
+	return fmt.Sprintf("%s %s %s %s", dim("["+ts+"]"), colorize(ansiBold+ansiGreen, "YOU →"), bold(displayName), dim("("+targetLabel+")"))
+}
+
+func incomingTranscriptHeader(ts string, fromName string, fromTarget string) string {
+	return fmt.Sprintf("%s %s %s %s", dim("["+ts+"]"), colorize(ansiBold+ansiBlue, "FROM ←"), bold(cyan(fromName)), dim("("+fromTarget+")"))
+}
+
+func printTranscriptMessage(header string, body string, accent func(string) string) {
+	divider := dim(strings.Repeat("─", 52))
+	fmt.Printf("%s\n%s\n", divider, formatTranscriptBlock(header, body, accent))
+}
+
 func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text string) {
 	user, err := cli.findUserByIDOrUsername(ctx, target)
 	if err != nil {
@@ -52,8 +79,7 @@ func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text str
 		targetLabel = "@" + user.Username
 	}
 
-	// Skip printing if message is empty
-	if strings.TrimSpace(text) == "" {
+	if text == "" {
 		return
 	}
 
@@ -61,13 +87,7 @@ func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text str
 	cli.setCurrentChat(targetLabel, displayName)
 	cli.markChatActivity(targetLabel, text, now)
 
-	divider := dim(strings.Repeat("─", 46))
-	ts := dim("[" + now.Format("15:04:05") + "]")
-	fmt.Printf("%s\n", divider)
-	fmt.Printf("%s %s %s %s\n", ts, colorize(ansiBold+ansiGreen, "→ YOU"), bold(displayName), dim("("+targetLabel+")"))
-	for _, line := range strings.Split(text, "\n") {
-		fmt.Printf("  %s %s\n", green("›"), line)
-	}
+	printTranscriptMessage(outgoingTranscriptHeader(now.Format("15:04:05"), displayName, targetLabel), text, green)
 }
 
 func (cli *TelegramCLI) shouldPrintIncoming(msg *tg.Message, fromTarget string) bool {
@@ -95,12 +115,15 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 	}
 
 	fromID, _ := msg.GetFromID()
-	fromName := "Unknown"
+	fromName := "Unknown sender"
 	fromTarget := "unknown"
 
 	if peerUser, ok := fromID.(*tg.PeerUser); ok {
 		if user, found := cli.getUserByID(peerUser.UserID); found {
 			fromName = strings.TrimSpace(user.FirstName + " " + user.LastName)
+			if fromName == "" && user.Username != "" {
+				fromName = "@" + user.Username
+			}
 			if fromName == "" {
 				fromName = fmt.Sprintf("User %d", peerUser.UserID)
 			}
@@ -119,25 +142,25 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 		return
 	}
 
-	// Skip printing if message is empty
-	if strings.TrimSpace(msg.Message) == "" {
+	if msg.Message == "" {
 		return
 	}
 
 	msgTime := time.Unix(int64(msg.Date), 0)
-	ts := msgTime.Format("15:04:05")
 	cli.markChatActivity(fromTarget, msg.Message, msgTime)
 	activeTarget, activeLabel := cli.currentChat()
 	incomingTarget := normalizeUsername(fromTarget)
 	mismatch := activeTarget != "" && normalizeUsername(activeTarget) != incomingTarget
 
-	divider := dim(strings.Repeat("─", 46))
-	fmt.Printf("%s\n", divider)
-	fmt.Printf("%s %s %s %s\n", dim("["+ts+"]"), colorize(ansiBold+ansiBlue, "← FROM"), bold(cyan(fromName)), dim("("+fromTarget+")"))
+	printTranscriptMessage(incomingTranscriptHeader(msgTime.Format("15:04:05"), fromName, fromTarget), msg.Message, cyan)
 	if mismatch {
-		fmt.Printf("%s %s %s\n", yellow("↪ Chat context:"), dim("currently focused on"), bold(activeLabel))
-	}
-	for _, line := range strings.Split(msg.Message, "\n") {
-		fmt.Printf("  %s %s\n", cyan("‹"), line)
+		focusLabel := activeLabel
+		if strings.TrimSpace(focusLabel) == "" {
+			focusLabel = activeTarget
+		}
+		if strings.TrimSpace(focusLabel) == "" {
+			focusLabel = "another chat"
+		}
+		fmt.Printf("  %s %s %s\n", yellow("↪"), dim("Current focus:"), bold(focusLabel))
 	}
 }
