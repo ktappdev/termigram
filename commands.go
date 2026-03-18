@@ -22,6 +22,7 @@ func printHelp() {
 	fmt.Println("  \\to <id|@user>      Switch active chat")
 	fmt.Println("  \\here               Show active chat")
 	fmt.Println("  \\chats              Interactive recent chats picker (↑/↓, Enter, Esc, filter)")
+	fmt.Println("  \\unread             Switch to a chat with unread messages")
 	fmt.Println("  \\close              Exit chat mode")
 	fmt.Println("  \\chat / \\back      Deprecated aliases for \\here/\\to and \\close")
 	fmt.Println("  \\help               Show this help")
@@ -65,7 +66,11 @@ func (cli *TelegramCLI) showCachedChats() {
 		if c.LastMessage != "" {
 			preview = dim(" — " + truncateInline(c.LastMessage, 32))
 		}
-		fmt.Printf(" %s %s %s %s%s\n", marker, bold(c.Label), dim("("+c.Target+")"), timeLabel, preview)
+		unread := ""
+		if c.UnreadCount > 0 {
+			unread = " " + blue(fmt.Sprintf("[%d unread]", c.UnreadCount))
+		}
+		fmt.Printf(" %s %s %s %s%s%s\n", marker, bold(c.Label), dim("("+c.Target+")"), timeLabel, preview, unread)
 	}
 }
 
@@ -162,6 +167,35 @@ func (cli *TelegramCLI) runChatsPicker() {
 	if result.Chosen != nil {
 		cli.activateCachedChat(*result.Chosen, false)
 	}
+}
+
+func (cli *TelegramCLI) runUnreadPicker(ctx context.Context) {
+	chats, err := cli.fetchDialogs(ctx, 50, true)
+	if err != nil {
+		fmt.Printf("%s %v\n", red("Error loading unread chats:"), err)
+		return
+	}
+	if len(chats) == 0 {
+		fmt.Println(dim("No unread chats."))
+		return
+	}
+	if len(chats) == 1 {
+		cli.activateCachedChat(chats[0], false)
+		return
+	}
+
+	chosen, ok := cli.selectCachedChat(
+		"Unread chats",
+		"",
+		chats,
+		"No unread chats.",
+		"Unread chat selection cancelled.",
+		"Unread chats",
+	)
+	if !ok {
+		return
+	}
+	cli.activateCachedChat(*chosen, false)
 }
 
 func (cli *TelegramCLI) commandLoop(ctx context.Context) {
@@ -296,6 +330,8 @@ func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 				cli.showActiveChat()
 			case "\\chats":
 				cli.runChatsPicker()
+			case "\\unread":
+				cli.runUnreadPicker(ctx)
 			case "\\close":
 				cli.clearActiveChat(false)
 			case "\\chat":

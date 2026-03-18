@@ -31,6 +31,7 @@ type TelegramCLI struct {
 	currentChatLabel  string
 	chatLastActivity  map[string]time.Time
 	chatLastMessage   map[string]string
+	chatUnreadCount   map[string]int
 	seenIncoming      map[string]time.Time
 }
 
@@ -47,6 +48,7 @@ func NewTelegramCLI(appID int, appHash string, sessionPath string) *TelegramCLI 
 		usernameByUserID: make(map[int64]string),
 		chatLastActivity: make(map[string]time.Time),
 		chatLastMessage:  make(map[string]string),
+		chatUnreadCount:  make(map[string]int),
 		seenIncoming:     make(map[string]time.Time),
 	}
 
@@ -103,6 +105,9 @@ func (cli *TelegramCLI) Run() error {
 
 		if err := cli.loadContacts(ctx); err != nil {
 			fmt.Printf("Warning: could not load contacts: %v\n", err)
+		}
+		if _, err := cli.fetchDialogs(ctx, 50, false); err != nil {
+			fmt.Printf("Warning: could not load dialogs: %v\n", err)
 		}
 
 		cli.commandLoop(ctx)

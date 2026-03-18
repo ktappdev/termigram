@@ -19,6 +19,11 @@ type ContactsBackend interface {
 	GetContacts(ctx context.Context) ([]ContactOutput, error)
 }
 
+// DialogsBackend is implemented by backends that can list dialogs with unread metadata.
+type DialogsBackend interface {
+	GetDialogs(ctx context.Context, limit int) ([]DialogOutput, error)
+}
+
 // UsernameDiscoveryBackend is implemented by backends that can resolve users
 // and support username prefix lookup.
 type UsernameDiscoveryBackend interface {
@@ -69,4 +74,13 @@ type ContactOutput struct {
 	LastName  string `json:"last_name"`
 	Username  string `json:"username,omitempty"`
 	Phone     string `json:"phone,omitempty"`
+}
+
+// DialogOutput represents chat list data including unread counts.
+type DialogOutput struct {
+	Title       string `json:"title"`
+	Target      string `json:"target"`
+	LastMessage string `json:"last_message,omitempty"`
+	LastTime    int64  `json:"last_time,omitempty"`
+	UnreadCount int    `json:"unread_count"`
 }

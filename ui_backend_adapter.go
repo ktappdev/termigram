@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/ktappdev/termigram/ui"
@@ -70,33 +68,25 @@ func (a *uiBackendAdapter) GetMessages(ctx context.Context, target string, limit
 }
 
 func (a *uiBackendAdapter) GetDialogs(ctx context.Context, limit int) ([]ui.BackendDialog, error) {
-	contacts, err := a.backend.GetContacts(ctx)
+	dialogs, err := a.backend.GetDialogs(ctx, limit)
 	if err != nil {
 		return nil, err
 	}
-	if limit <= 0 || limit > len(contacts) {
-		limit = len(contacts)
-	}
 
-	dialogs := make([]ui.BackendDialog, 0, limit)
-	for i := 0; i < limit; i++ {
-		c := contacts[i]
-		title := strings.TrimSpace(c.FirstName + " " + c.LastName)
-		if title == "" {
-			title = fmt.Sprintf("User %d", c.UserID)
+	out := make([]ui.BackendDialog, 0, len(dialogs))
+	for _, dialog := range dialogs {
+		lastTime := ""
+		if dialog.LastTime > 0 {
+			lastTime = time.Unix(dialog.LastTime, 0).Format("15:04")
 		}
-		target := fmt.Sprintf("%d", c.UserID)
-		if c.Username != "" {
-			target = "@" + c.Username
-		}
-		dialogs = append(dialogs, ui.BackendDialog{
-			Title:       title,
-			Target:      target,
-			LastMessage: "",
-			LastTime:    "",
+		out = append(out, ui.BackendDialog{
+			Title:       dialog.Title,
+			Target:      dialog.Target,
+			LastMessage: dialog.LastMessage,
+			LastTime:    lastTime,
 			Online:      false,
-			UnreadCount: 0,
+			UnreadCount: dialog.UnreadCount,
 		})
 	}
-	return dialogs, nil
+	return out, nil
 }

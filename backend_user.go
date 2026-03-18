@@ -203,6 +203,29 @@ func (b *UserBackend) GetContacts(ctx context.Context) ([]ContactOutput, error) 
 	return out, nil
 }
 
+func (b *UserBackend) GetDialogs(ctx context.Context, limit int) ([]DialogOutput, error) {
+	chats, err := b.cli.fetchDialogs(ctx, limit, false)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]DialogOutput, 0, len(chats))
+	for _, chat := range chats {
+		lastTime := int64(0)
+		if !chat.LastActivity.IsZero() {
+			lastTime = chat.LastActivity.Unix()
+		}
+		out = append(out, DialogOutput{
+			Title:       chat.Label,
+			Target:      chat.Target,
+			LastMessage: chat.LastMessage,
+			LastTime:    lastTime,
+			UnreadCount: chat.UnreadCount,
+		})
+	}
+	return out, nil
+}
+
 func (b *UserBackend) ResolveTarget(ctx context.Context, target string) (*UserOutput, error) {
 	user, err := b.cli.findUserByIDOrUsername(ctx, target)
 	if err != nil {
