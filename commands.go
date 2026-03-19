@@ -23,7 +23,7 @@ func printHelp() {
 	fmt.Println("  \\to <id|@user>      Switch active chat")
 	fmt.Println("  \\here               Show active chat")
 	fmt.Println("  \\chats              Interactive recent chats picker (↑/↓, Enter, Esc, filter)")
-	fmt.Println("  \\unread             Switch to a chat with unread messages")
+	fmt.Println("  \\unread             Pick from chats with unread messages and enter the selection")
 	fmt.Println("  \\close              Exit chat mode")
 	fmt.Println("  \\chat / \\back      Deprecated aliases for \\here/\\to and \\close")
 	fmt.Println("  \\help               Show this help")
@@ -180,10 +180,6 @@ func (cli *TelegramCLI) runUnreadPicker(ctx context.Context) {
 		fmt.Println(dim("No unread chats."))
 		return
 	}
-	if len(chats) == 1 {
-		cli.activateCachedChat(chats[0], false)
-		return
-	}
 
 	chosen, ok := cli.selectCachedChat(
 		"Unread chats",
@@ -195,6 +191,9 @@ func (cli *TelegramCLI) runUnreadPicker(ctx context.Context) {
 	)
 	if !ok {
 		return
+	}
+	if loadErr := cli.ensureLegacyTranscript(ctx, chosen.Target, chosen.Label); loadErr != nil {
+		fmt.Printf("%s %v\n", yellow("Warning:"), loadErr)
 	}
 	cli.activateCachedChat(*chosen, false)
 }

@@ -159,6 +159,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.lastError = ""
 		m.appendOutgoingMessage(msg.Text)
 		return m, nil
+	case backendResolveChatMsg:
+		if msg.Err != nil {
+			m.lastError = msg.Err.Error()
+			return m, nil
+		}
+		m.lastError = ""
+		if msg.Chat == nil {
+			m.lastNotice = "No chat resolved"
+			return m, nil
+		}
+		return m, m.openChat(ChatItem{Title: msg.Chat.Title, Target: msg.Chat.Target})
 	case IncomingMessageMsg:
 		m.handleIncomingMessage(msg)
 		return m, nil
@@ -217,11 +228,9 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.lastNotice = "Search chats"
 		return m, nil
 	case "ctrl+n":
-		m.lastNotice = "New chat creation is not wired in TUI yet; use --ui=legacy if needed"
-		return m, nil
+		return m.openNewChatModal()
 	case "ctrl+,":
-		m.lastNotice = "Settings are not wired in TUI yet"
-		return m, nil
+		return m.openSettingsModal()
 	case "r":
 		m.Focus = focusInput
 		m.Input.ReplyTo = m.selectedChatTitle()
@@ -382,11 +391,23 @@ func (m Model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch m.ActiveModal {
 	case modalNewChat:
-		m.NewChatModal = m.NewChatModal.Update(msg)
 		if key == "enter" {
-			m.lastNotice = "New chat creation is not wired in TUI yet"
-			m.ActiveModal = modalNone
+			if chat, ok := m.NewChatModal.SelectedChat(); ok {
+				return m, m.openChat(chat)
+			}
+			query := m.NewChatModal.Query()
+			if query == "" {
+				m.lastNotice = "Enter a username or user id"
+				return m, nil
+			}
+			if m.backend == nil {
+				m.lastNotice = "No matching cached chat for " + query
+				return m, nil
+			}
+			m.lastNotice = "Opening " + query
+			return m, m.resolveNewChatCmd(query)
 		}
+		m.NewChatModal = m.NewChatModal.Update(msg)
 	case modalSettings:
 		m.SettingsModal = m.SettingsModal.Update(msg)
 		m.lastNotice = fmt.Sprintf("Theme %s, Notifications %s", onOff(m.SettingsModal.ThemeDark), onOff(m.SettingsModal.Notifications))

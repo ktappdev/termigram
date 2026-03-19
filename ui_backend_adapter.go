@@ -92,6 +92,31 @@ func (a *uiBackendAdapter) GetDialogs(ctx context.Context, limit int) ([]ui.Back
 	return out, nil
 }
 
+func (a *uiBackendAdapter) ResolveChat(ctx context.Context, target string) (*ui.BackendDialog, error) {
+	resolved, err := a.backend.ResolveTarget(ctx, target)
+	if err != nil {
+		return nil, err
+	}
+
+	title := strings.TrimSpace(resolved.FirstName + " " + resolved.LastName)
+	if title == "" {
+		title = strings.TrimSpace(resolved.Username)
+	}
+	if title == "" {
+		title = target
+	}
+
+	resolvedTarget := strings.TrimSpace(target)
+	if resolved.Username != "" {
+		resolvedTarget = "@" + resolved.Username
+	}
+	if resolvedTarget == "" {
+		resolvedTarget = target
+	}
+
+	return &ui.BackendDialog{Title: title, Target: resolvedTarget}, nil
+}
+
 func (a *uiBackendAdapter) SetActiveChat(target string, title string) {
 	if a.backend == nil || a.backend.cli == nil {
 		return

@@ -118,9 +118,9 @@ func (m Model) compactModeLabel() string {
 }
 
 func (m Model) renderShortcutBar() string {
-	text := "↑/↓ Move  Enter Open chat/send  Tab Focus  Esc Back  Ctrl+F Search  Ctrl+O Attach  R Reply  D Delete  ? Help"
+	text := "↑/↓ Move  Enter Open chat/send  Tab Focus  Esc Back  Ctrl+F Search  Ctrl+N New chat  Ctrl+, Settings  Ctrl+O Attach  R Reply  D Delete  ? Help"
 	if m.isCompactLayout() {
-		text = "Enter open/send • Esc chats • Ctrl+F search • ? help"
+		text = "Enter open/send • Esc chats • Ctrl+F search • Ctrl+N new chat • Ctrl+, settings • ? help"
 	}
 	bar := lipgloss.NewStyle().
 		Background(TelegramDark.BgSecondary).
@@ -141,6 +141,8 @@ func (m Model) renderHelpOverlay(base string) string {
 		"",
 		"Actions",
 		"  Ctrl+F     Search chats",
+		"  Ctrl+N     Open new-chat selector",
+		"  Ctrl+,     Open settings",
 		"  Ctrl+O     Insert attach token",
 		"  R          Reply to selected chat",
 		"  D          Delete latest message/chat",

@@ -36,5 +36,6 @@ type Backend interface {
 	SendMessage(ctx context.Context, target string, text string) error
 	GetMessages(ctx context.Context, target string, limit int) ([]BackendMessage, error)
 	GetDialogs(ctx context.Context, limit int) ([]BackendDialog, error)
+	ResolveChat(ctx context.Context, target string) (*BackendDialog, error)
 	SetActiveChat(target string, title string)
 }
