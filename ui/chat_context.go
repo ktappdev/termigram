@@ -5,14 +5,18 @@ func (m *Model) syncHeaderChat() {
 }
 
 func (m Model) headerCurrentChat() string {
-	if m.Focus == focusChatList {
-		return ""
-	}
-
 	chat, ok := m.selectedChat()
 	if !ok {
 		return ""
 	}
 
+	if m.isHomeHeaderMode() {
+		return ""
+	}
+
 	return chatLabel(chat.Title, chat.Target, "")
+}
+
+func (m Model) isHomeHeaderMode() bool {
+	return m.isCompactLayout() && m.Focus == focusChatList
 }
