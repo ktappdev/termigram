@@ -118,8 +118,12 @@ func (m InputAreaModel) inputWidth() int {
 	if m.Width <= 0 {
 		return 40
 	}
-	if m.Width < 18 {
+	if m.Width <= 20 {
 		return m.Width
 	}
-	return m.Width - 20
+	width := m.Width - 20
+	if width < 1 {
+		return 1
+	}
+	return width
 }
