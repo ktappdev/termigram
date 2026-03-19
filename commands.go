@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -200,161 +201,158 @@ func (cli *TelegramCLI) runUnreadPicker(ctx context.Context) {
 
 func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGWINCH)
 	defer signal.Stop(sigChan)
 
 	for {
-		fmt.Print(cli.promptLabel())
-
-		inputChan := make(chan inputReadResult, 1)
-		go func() {
-			line, err := cli.reader.ReadString('\n')
-			inputChan <- inputReadResult{line: line, err: err}
-		}()
-
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			fmt.Println("\nExiting...")
 			return
-		case <-sigChan:
-			fmt.Println("\nInterrupt received, exiting...")
-			if cli.cancel != nil {
-				cli.cancel()
-			}
-			return
-		case result := <-inputChan:
-			if result.err != nil {
+		}
+
+		input, err := cli.readInteractiveLine(ctx, sigChan)
+		if err != nil {
+			switch {
+			case errors.Is(err, context.Canceled):
+				fmt.Println("\nExiting...")
+				return
+			case errors.Is(err, errLegacyPromptInterrupted):
+				fmt.Println("\nInterrupt received, exiting...")
+				if cli.cancel != nil {
+					cli.cancel()
+				}
+				return
+			default:
 				if ctx.Err() != nil {
 					fmt.Println("\nExiting...")
 					return
 				}
 				return
 			}
+		}
 
-			input := strings.TrimSpace(result.line)
-			if input == "" {
+		if input == "" {
+			continue
+		}
+
+		if !strings.HasPrefix(input, "\\") {
+			target, _ := cli.currentChat()
+			if target != "" {
+				cli.sendMessage(ctx, target, input)
+				continue
+			}
+			fmt.Println(yellow("No active chat."), "Use \\msg <id|@user> <text> to start, or \\help.")
+			continue
+		}
+
+		parts := strings.Fields(input)
+		cmd := strings.ToLower(parts[0])
+
+		switch cmd {
+		case "\\me":
+			cli.showSelf(ctx)
+		case "\\contacts":
+			cli.showContacts(ctx)
+		case "\\find":
+			if len(parts) < 2 {
+				fmt.Println(yellow("Usage:"), "\\find <query>")
 				continue
 			}
 
-			if !strings.HasPrefix(input, "\\") {
-				target, _ := cli.currentChat()
-				if target != "" {
-					cli.sendMessage(ctx, target, input)
-					continue
-				}
-				fmt.Println(yellow("No active chat."), "Use \\msg <id|@user> <text> to start, or \\help.")
+			query := strings.Join(parts[1:], " ")
+			chosen, ok := cli.selectCachedChat(
+				"Find chat",
+				query,
+				cli.cachedChatsForPartial(query, 10),
+				fmt.Sprintf("No cached chats match %q.", query),
+				"Find cancelled.",
+				"Cached chat matches",
+			)
+			if !ok {
 				continue
 			}
+			cli.activateCachedChat(*chosen, false)
+		case "\\msg":
+			if len(parts) < 3 {
+				fmt.Println(yellow("Usage:"), "\\msg <user_id|@username> <message>")
+				continue
+			}
+			target := parts[1]
+			msgText := strings.Join(parts[2:], " ")
 
-			parts := strings.Fields(input)
-			cmd := strings.ToLower(parts[0])
-
-			switch cmd {
-			case "\\me":
-				cli.showSelf(ctx)
-			case "\\contacts":
-				cli.showContacts(ctx)
-			case "\\find":
-				if len(parts) < 2 {
-					fmt.Println(yellow("Usage:"), "\\find <query>")
-					continue
-				}
-
-				query := strings.Join(parts[1:], " ")
-				chosen, ok := cli.selectCachedChat(
-					"Find chat",
-					query,
-					cli.cachedChatsForPartial(query, 10),
-					fmt.Sprintf("No cached chats match %q.", query),
-					"Find cancelled.",
-					"Cached chat matches",
-				)
-				if !ok {
-					continue
-				}
-				cli.activateCachedChat(*chosen, false)
-			case "\\msg":
-				if len(parts) < 3 {
-					fmt.Println(yellow("Usage:"), "\\msg <user_id|@username> <message>")
-					continue
-				}
-				target := parts[1]
-				msgText := strings.Join(parts[2:], " ")
-
-				if strings.HasPrefix(target, "@") {
-					username := normalizeUsername(target)
-					if _, found := cli.getUserByUsername(username); found {
-						cli.sendMessage(ctx, target, msgText)
-					} else {
-						suggestions := cli.findMatchingUsernames(username, 5)
-						if len(suggestions) > 0 {
-							fmt.Printf("Message not sent. Did you mean: %s?\n", strings.Join(suggestions, ", "))
-						} else {
-							cli.sendMessage(ctx, target, msgText)
-						}
-					}
-				} else {
+			if strings.HasPrefix(target, "@") {
+				username := normalizeUsername(target)
+				if _, found := cli.getUserByUsername(username); found {
 					cli.sendMessage(ctx, target, msgText)
-				}
-			case "\\to":
-				if len(parts) < 2 {
-					fmt.Println(yellow("Usage:"), "\\to <id|@user>")
-					continue
-				}
-
-				target := parts[1]
-				if chat, err := cli.resolveChatTarget(ctx, target); err == nil {
-					cli.activateCachedChat(chat, false)
-					continue
-				}
-
-				matches := cli.cachedChatsForPartial(target, 10)
-				if len(matches) == 1 {
-					cli.activateCachedChat(matches[0], false)
-					continue
-				}
-
-				chosen, ok := cli.selectCachedChat(
-					"Switch chat",
-					target,
-					matches,
-					fmt.Sprintf("No cached chats match %q. Try \\contacts, \\find <query>, or an exact @username/user id.", target),
-					"Chat switch cancelled.",
-					"Cached chat matches",
-				)
-				if !ok {
-					continue
-				}
-				cli.activateCachedChat(*chosen, false)
-			case "\\here":
-				cli.showActiveChat()
-			case "\\chats":
-				cli.runChatsPicker()
-			case "\\unread":
-				cli.runUnreadPicker(ctx)
-			case "\\close":
-				cli.clearActiveChat(false)
-			case "\\chat":
-				fmt.Println(dim("\\chat is deprecated. Use \\here or \\to <id|@user>."))
-				if len(parts) == 1 {
-					cli.showActiveChat()
 				} else {
-					cli.switchActiveChat(ctx, parts[1], true)
+					suggestions := cli.findMatchingUsernames(username, 5)
+					if len(suggestions) > 0 {
+						fmt.Printf("Message not sent. Did you mean: %s?\n", strings.Join(suggestions, ", "))
+					} else {
+						cli.sendMessage(ctx, target, msgText)
+					}
 				}
-			case "\\back":
-				fmt.Println(dim("\\back is deprecated. Use \\close."))
-				cli.clearActiveChat(true)
-			case "\\help":
-				printHelp()
-			case "\\quit", "\\exit":
-				fmt.Println("Goodbye!")
-				if cli.cancel != nil {
-					cli.cancel()
-				}
-				return
-			default:
-				fmt.Printf("%s %s. Type \\help for available commands.\n", yellow("Unknown command:"), cmd)
+			} else {
+				cli.sendMessage(ctx, target, msgText)
 			}
+		case "\\to":
+			if len(parts) < 2 {
+				fmt.Println(yellow("Usage:"), "\\to <id|@user>")
+				continue
+			}
+
+			target := parts[1]
+			if chat, err := cli.resolveChatTarget(ctx, target); err == nil {
+				cli.activateCachedChat(chat, false)
+				continue
+			}
+
+			matches := cli.cachedChatsForPartial(target, 10)
+			if len(matches) == 1 {
+				cli.activateCachedChat(matches[0], false)
+				continue
+			}
+
+			chosen, ok := cli.selectCachedChat(
+				"Switch chat",
+				target,
+				matches,
+				fmt.Sprintf("No cached chats match %q. Try \\contacts, \\find <query>, or an exact @username/user id.", target),
+				"Chat switch cancelled.",
+				"Cached chat matches",
+			)
+			if !ok {
+				continue
+			}
+			cli.activateCachedChat(*chosen, false)
+		case "\\here":
+			cli.showActiveChat()
+		case "\\chats":
+			cli.runChatsPicker()
+		case "\\unread":
+			cli.runUnreadPicker(ctx)
+		case "\\close":
+			cli.clearActiveChat(false)
+		case "\\chat":
+			fmt.Println(dim("\\chat is deprecated. Use \\here or \\to <id|@user>."))
+			if len(parts) == 1 {
+				cli.showActiveChat()
+			} else {
+				cli.switchActiveChat(ctx, parts[1], true)
+			}
+		case "\\back":
+			fmt.Println(dim("\\back is deprecated. Use \\close."))
+			cli.clearActiveChat(true)
+		case "\\help":
+			printHelp()
+		case "\\quit", "\\exit":
+			fmt.Println("Goodbye!")
+			if cli.cancel != nil {
+				cli.cancel()
+			}
+			return
+		default:
+			fmt.Printf("%s %s. Type \\help for available commands.\n", yellow("Unknown command:"), cmd)
 		}
 	}
 }

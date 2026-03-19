@@ -1,0 +1,166 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+)
+
+const legacyTranscriptLimit = 100
+
+type legacyTranscriptEntry struct {
+	MessageID int64
+	Outgoing  bool
+	Header    string
+	Body      string
+	Meta      string
+}
+
+func (cli *TelegramCLI) setLegacyConsole(console *legacyConsole) {
+	cli.legacyMu.Lock()
+	defer cli.legacyMu.Unlock()
+	cli.legacyConsole = console
+}
+
+func (cli *TelegramCLI) currentLegacyConsole() *legacyConsole {
+	cli.legacyMu.RLock()
+	defer cli.legacyMu.RUnlock()
+	return cli.legacyConsole
+}
+
+func normalizeLegacyTranscriptTarget(target string) string {
+	return normalizeUsername(target)
+}
+
+func (cli *TelegramCLI) appendLegacyTranscriptEntry(target string, entry legacyTranscriptEntry) {
+	normalized := normalizeLegacyTranscriptTarget(target)
+	if normalized == "" {
+		return
+	}
+
+	cli.legacyMu.Lock()
+	defer cli.legacyMu.Unlock()
+
+	existing := cli.legacyTranscripts[normalized]
+	if entry.MessageID != 0 {
+		for _, current := range existing {
+			if current.MessageID == entry.MessageID {
+				return
+			}
+		}
+	}
+
+	existing = append(existing, entry)
+	if len(existing) > legacyTranscriptLimit {
+		existing = existing[len(existing)-legacyTranscriptLimit:]
+	}
+	cli.legacyTranscripts[normalized] = existing
+}
+
+func (cli *TelegramCLI) legacyTranscriptSnapshot(target string) ([]legacyTranscriptEntry, bool) {
+	normalized := normalizeLegacyTranscriptTarget(target)
+	if normalized == "" {
+		return nil, false
+	}
+
+	cli.legacyMu.RLock()
+	defer cli.legacyMu.RUnlock()
+
+	entries := append([]legacyTranscriptEntry(nil), cli.legacyTranscripts[normalized]...)
+	return entries, cli.legacyLoaded[normalized]
+}
+
+func (cli *TelegramCLI) mergeLegacyTranscriptEntries(target string, fetched []legacyTranscriptEntry) {
+	normalized := normalizeLegacyTranscriptTarget(target)
+	if normalized == "" {
+		return
+	}
+
+	cli.legacyMu.Lock()
+	defer cli.legacyMu.Unlock()
+
+	merged := mergeLegacyEntrySlices(fetched, cli.legacyTranscripts[normalized])
+	if len(merged) > legacyTranscriptLimit {
+		merged = merged[len(merged)-legacyTranscriptLimit:]
+	}
+	cli.legacyTranscripts[normalized] = merged
+	cli.legacyLoaded[normalized] = true
+}
+
+func mergeLegacyEntrySlices(primary []legacyTranscriptEntry, secondary []legacyTranscriptEntry) []legacyTranscriptEntry {
+	out := make([]legacyTranscriptEntry, 0, len(primary)+len(secondary))
+	seenIDs := make(map[int64]struct{}, len(primary)+len(secondary))
+	seenKeys := make(map[string]struct{}, len(primary)+len(secondary))
+
+	appendUnique := func(entries []legacyTranscriptEntry) {
+		for _, entry := range entries {
+			if entry.MessageID != 0 {
+				if _, exists := seenIDs[entry.MessageID]; exists {
+					continue
+				}
+				seenIDs[entry.MessageID] = struct{}{}
+				seenKeys[legacyEntryKey(entry)] = struct{}{}
+			} else {
+				key := legacyEntryKey(entry)
+				if _, exists := seenKeys[key]; exists {
+					continue
+				}
+				seenKeys[key] = struct{}{}
+			}
+			out = append(out, entry)
+		}
+	}
+
+	appendUnique(primary)
+	appendUnique(secondary)
+	return out
+}
+
+func legacyEntryKey(entry legacyTranscriptEntry) string {
+	return fmt.Sprintf("%t|%s|%s|%s", entry.Outgoing, strings.TrimSpace(entry.Header), strings.TrimSpace(entry.Body), strings.TrimSpace(entry.Meta))
+}
+
+func (cli *TelegramCLI) ensureLegacyTranscript(ctx context.Context, target string, label string) error {
+	if ctx == nil {
+		return nil
+	}
+
+	if _, loaded := cli.legacyTranscriptSnapshot(target); loaded {
+		return nil
+	}
+
+	backend := &UserBackend{cli: cli}
+	messages, err := backend.GetMessages(ctx, target, 20)
+	if err != nil {
+		return err
+	}
+
+	entries := legacyEntriesFromMessages(target, label, messages)
+	cli.mergeLegacyTranscriptEntries(target, entries)
+	return nil
+}
+
+func legacyEntriesFromMessages(target string, label string, messages []MessageOutput) []legacyTranscriptEntry {
+	entries := make([]legacyTranscriptEntry, 0, len(messages))
+	for i := len(messages) - 1; i >= 0; i-- {
+		msg := messages[i]
+		timestamp := time.Unix(msg.Date, 0).Format("15:04:05")
+
+		entry := legacyTranscriptEntry{
+			MessageID: msg.ID,
+			Outgoing:  msg.Outgoing,
+			Body:      msg.Message,
+		}
+
+		if msg.Outgoing {
+			entry.Header = outgoingTranscriptHeader(label, target, false)
+			entry.Meta = outgoingTranscriptMeta(timestamp)
+		} else {
+			entry.Header = incomingTranscriptHeader(msg.FromName, target, false)
+			entry.Meta = incomingTranscriptMeta(timestamp)
+		}
+		entries = append(entries, entry)
+	}
+	return entries
+}

@@ -222,7 +222,7 @@ Examples:
 Global flags:
   -h, --help       Show this help
   -v, --version    Show app version
-  --ui MODE        Interactive UI: auto (default), tui, or legacy
+  --ui MODE        Interactive UI: auto (default legacy), tui, or legacy
 
 Command help:
   ./termigram <command> --help`)

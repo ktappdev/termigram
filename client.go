@@ -35,6 +35,10 @@ type TelegramCLI struct {
 	chatUnreadCount   map[string]int
 	seenIncoming      map[string]time.Time
 	tuiProgram        *tea.Program
+	legacyMu          sync.RWMutex
+	legacyConsole     *legacyConsole
+	legacyTranscripts map[string][]legacyTranscriptEntry
+	legacyLoaded      map[string]bool
 }
 
 func NewTelegramCLI(appID int, appHash string, sessionPath string) *TelegramCLI {
@@ -44,14 +48,16 @@ func NewTelegramCLI(appID int, appHash string, sessionPath string) *TelegramCLI 
 	}
 
 	cli := &TelegramCLI{
-		reader:           bufio.NewReader(os.Stdin),
-		users:            make(map[int64]*tg.User),
-		usersByName:      make(map[string]*tg.User),
-		usernameByUserID: make(map[int64]string),
-		chatLastActivity: make(map[string]time.Time),
-		chatLastMessage:  make(map[string]string),
-		chatUnreadCount:  make(map[string]int),
-		seenIncoming:     make(map[string]time.Time),
+		reader:            bufio.NewReader(os.Stdin),
+		users:             make(map[int64]*tg.User),
+		usersByName:       make(map[string]*tg.User),
+		usernameByUserID:  make(map[int64]string),
+		chatLastActivity:  make(map[string]time.Time),
+		chatLastMessage:   make(map[string]string),
+		chatUnreadCount:   make(map[string]int),
+		seenIncoming:      make(map[string]time.Time),
+		legacyTranscripts: make(map[string][]legacyTranscriptEntry),
+		legacyLoaded:      make(map[string]bool),
 	}
 
 	cli.client = telegram.NewClient(appID, appHash, telegram.Options{
@@ -134,7 +140,7 @@ func (cli *TelegramCLI) handleUpdates(ctx context.Context, updates tg.UpdatesCla
 	case *tg.UpdateShortChatMessage:
 		cli.processShortChatMessage(u)
 	case *tg.UpdatesTooLong:
-		fmt.Println("\n[info] Too many updates received; waiting for fresh updates...")
+		cli.writeLegacyOutput("[info] Too many updates received; waiting for fresh updates...")
 	}
 
 	return nil

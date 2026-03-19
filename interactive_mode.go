@@ -49,13 +49,6 @@ func runInteractiveMode(cfg Config, uiValue string) error {
 		}
 		return cli.RunTUI()
 	default:
-		if interactiveTTYAvailable() {
-			if err := cli.RunTUI(); err == nil {
-				return nil
-			} else {
-				fmt.Fprintf(os.Stderr, "Warning: Bubble Tea UI failed (%v). Falling back to legacy interactive mode.\n", err)
-			}
-		}
 		return cli.RunLegacy()
 	}
 }

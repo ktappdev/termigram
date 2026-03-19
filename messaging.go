@@ -106,7 +106,10 @@ func transcriptThemeFor(outgoing bool) transcriptTheme {
 }
 
 func renderTranscriptBubble(outgoing bool, header string, body string, meta string) string {
-	totalWidth := transcriptWidth()
+	return renderTranscriptBubbleForWidth(outgoing, header, body, meta, transcriptWidth())
+}
+
+func renderTranscriptBubbleForWidth(outgoing bool, header string, body string, meta string, totalWidth int) string {
 	bubbleWidth := transcriptBubbleWidth(totalWidth)
 	padding := transcriptPadding(totalWidth)
 	innerWidth := bubbleWidth - 2 - (padding * 2)
@@ -285,8 +288,21 @@ func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text str
 	now := time.Now()
 	cli.setCurrentChat(targetLabel, displayName)
 	cli.markChatActivity(targetLabel, text, now)
+	_ = cli.ensureLegacyTranscript(ctx, targetLabel, displayName)
 
-	printTranscriptMessage(true, outgoingTranscriptHeader(displayName, targetLabel, false), text, outgoingTranscriptMeta(now.Format("15:04:05")))
+	entry := legacyTranscriptEntry{
+		Outgoing: true,
+		Header:   outgoingTranscriptHeader(displayName, targetLabel, false),
+		Body:     text,
+		Meta:     outgoingTranscriptMeta(now.Format("15:04:05")),
+	}
+	cli.appendLegacyTranscriptEntry(targetLabel, entry)
+
+	if interactiveTTYAvailable() {
+		return
+	}
+
+	printTranscriptMessage(true, entry.Header, entry.Body, entry.Meta)
 }
 
 func (cli *TelegramCLI) shouldPrintIncoming(msg *tg.Message, fromTarget string) bool {
@@ -356,6 +372,15 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 		cli.clearChatUnreadCount(fromTarget)
 	}
 
+	entry := legacyTranscriptEntry{
+		MessageID: int64(msg.ID),
+		Outgoing:  false,
+		Header:    incomingTranscriptHeader(fromName, fromTarget, mismatch),
+		Body:      msg.Message,
+		Meta:      incomingTranscriptMeta(msgTime.Format("15:04:05")),
+	}
+	cli.appendLegacyTranscriptEntry(fromTarget, entry)
+
 	if cli.sendTUIMessage(ui.IncomingMessageMsg{
 		Target:    fromTarget,
 		ChatTitle: fromName,
@@ -372,7 +397,31 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 		return
 	}
 
-	printTranscriptMessage(false, incomingTranscriptHeader(fromName, fromTarget, mismatch), msg.Message, incomingTranscriptMeta(msgTime.Format("15:04:05")))
+	if !mismatch && cli.currentLegacyConsole() != nil {
+		cli.redrawLegacyChatView()
+		return
+	}
+	if !mismatch && interactiveTTYAvailable() {
+		return
+	}
+
+	if console := cli.currentLegacyConsole(); console != nil {
+		text := renderTranscriptBubbleForWidth(false, entry.Header, entry.Body, entry.Meta, transcriptWidth())
+		if mismatch {
+			focusLabel := activeLabel
+			if strings.TrimSpace(focusLabel) == "" {
+				focusLabel = activeTarget
+			}
+			if strings.TrimSpace(focusLabel) == "" {
+				focusLabel = "another chat"
+			}
+			text += "\n" + fmt.Sprintf("  %s %s %s", yellow("↪"), dim("Current focus:"), bold(focusLabel))
+		}
+		_ = console.WriteString(text)
+		return
+	}
+
+	printTranscriptMessage(false, entry.Header, entry.Body, entry.Meta)
 	if mismatch {
 		focusLabel := activeLabel
 		if strings.TrimSpace(focusLabel) == "" {

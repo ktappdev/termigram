@@ -26,23 +26,23 @@ On first run:
 
 Your session is saved automatically to `~/.termigram/session.json` by default.
 
-Default interactive mode now opens the Bubble Tea chat UI. Pick a chat from the sidebar, press `Enter`, and type in the composer at the bottom.
+Default interactive mode keeps the familiar command/transcript workflow. Open a chat with `\msg` or `\to`, then type plain text to send into the active chat.
 
-If you prefer the older slash-command REPL during rollout, run:
+If you want the optional Bubble Tea split-pane UI instead, run:
 
 ```bash
-./termigram --ui legacy
+./termigram --ui tui
 ```
 
 ## Everyday usage
 
 ### Interactive UI modes
 
-- `./termigram` uses the Bubble Tea TUI by default for TTY sessions
-- `./termigram --ui tui` forces the Bubble Tea TUI
-- `./termigram --ui legacy` forces the older slash-command REPL
+- `./termigram` uses the legacy command/transcript UI by default
+- `./termigram --ui legacy` forces the legacy command/transcript UI
+- `./termigram --ui tui` opens the optional Bubble Tea split-pane UI
 
-#### Legacy interactive commands (`--ui legacy`)
+#### Legacy interactive commands
 
 - `\me`
 - `\contacts`
@@ -110,50 +110,28 @@ Before one-shot commands work, run interactive once and complete phone login:
 
 ### Terminal UI notes
 
-TTY interactive mode now uses the Bubble Tea-managed chat UI by default so message composition is owned by the app and transcript bubbles reflow cleanly on resize. Use `--ui=legacy` if you need the older REPL during rollout.
+TTY interactive mode defaults to the legacy command/transcript UI, but it now owns prompt input so sent messages do not echo twice and redraws the active chat transcript on resize for more stable bubbles.
 
-For implementation notes on resize handling and layout tradeoffs, see `/Users/kentaylor/developer/telegram-cli/termigram/docs/bubbletea-resize-research.md`.
+Legacy chat flow:
 
-#### Features
+- `\msg <id|@user> <text>` starts a chat and sends immediately
+- `\to <id|@user>` switches the active chat
+- typing plain text sends to the active chat
+- `\unread` jumps to a chat with unread messages
+- `\close` exits chat mode
 
-- Split-pane layout
-- Real-time updates
-- Message bubbles
-- Search
-- Unread indicators
-- Draft support
-- Reply threads
-- Responsive design
-- Telegram dark theme
+Optional Bubble Tea UI:
 
-#### Keyboard shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `↑` / `↓` | Navigate chats / scroll messages |
-| `Enter` | Open selected chat / Send message |
-| `Esc` | Go back to chat list / Cancel reply |
-| `Ctrl+C` | Quit application |
-| `Tab` | Cycle focus between chats, transcript, and composer |
-| `Ctrl+F` | Focus chat search |
-| `Ctrl+O` | Insert attach token in the composer |
-| `R` | Start a reply to the selected chat |
-| `D` | Delete the latest message/chat in the active panel |
-| `?` | Show help |
-
-#### Responsive layout
-
-- Desktop view: split chat list and message view
-- Mobile view: single active panel
-- Recommended width: 80+ columns
-- Minimum height: 20 rows
+- Run `./termigram --ui tui`
+- See `/Users/kentaylor/developer/telegram-cli/termigram/docs/tui-guide.md`
+- Resize implementation notes remain in `/Users/kentaylor/developer/telegram-cli/termigram/docs/bubbletea-resize-research.md`
 
 ## Help and version
 
 ```bash
 ./termigram --help
 ./termigram --version
-./termigram --ui legacy
+./termigram --ui tui
 ./termigram send --help
 ./termigram get --help
 ./termigram contacts --help

@@ -4,7 +4,7 @@ title: TUI Guide
 
 # TUI Guide
 
-This guide summarizes the default Bubble Tea-managed terminal UI. If you need the older slash-command REPL during rollout, start termigram with `--ui legacy`.
+This guide summarizes the optional Bubble Tea-managed terminal UI. The default interactive experience is the legacy command/transcript workflow; start termigram with `--ui tui` when you want this split-pane view.
 
 For deeper implementation notes about resize handling and responsive layout decisions, see `/Users/kentaylor/developer/telegram-cli/termigram/docs/bubbletea-resize-research.md`.
 
