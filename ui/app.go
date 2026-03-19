@@ -183,14 +183,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.lastError = ""
-		m.Messages.Messages = append(m.Messages.Messages, Message{
-			Text:     msg.Text,
-			Time:     time.Now().Format("15:04"),
-			Sender:   "You",
-			Chat:     chatLabel(m.selectedChatTitle(), m.currentTarget(), ""),
-			Outgoing: true,
-			Read:     false,
-		})
+		m.appendOutgoingMessage(msg.Text)
 		m.Messages.Scroll = m.Messages.maxScroll()
 		return m, nil
 	case tea.WindowSizeMsg:
@@ -463,6 +456,79 @@ func (m *Model) consumeSentMessagesCmd() tea.Cmd {
 		})
 	}
 	return tea.Batch(cmds...)
+}
+
+func (m *Model) appendOutgoingMessage(text string) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return
+	}
+
+	m.removeTrailingTranscriptEcho(text)
+
+	if last := len(m.Messages.Messages) - 1; last >= 0 {
+		prev := m.Messages.Messages[last]
+		if prev.Outgoing && strings.TrimSpace(prev.Text) == text {
+			return
+		}
+	}
+
+	m.Messages.Messages = append(m.Messages.Messages, Message{
+		Text:     text,
+		Time:     time.Now().Format("15:04"),
+		Sender:   "You",
+		Chat:     chatLabel(m.selectedChatTitle(), m.currentTarget(), ""),
+		Outgoing: true,
+		Read:     false,
+	})
+}
+
+func (m *Model) removeTrailingTranscriptEcho(sentText string) {
+	if len(m.Messages.Messages) == 0 {
+		return
+	}
+
+	trimmedSent := strings.TrimSpace(sentText)
+	filtered := m.Messages.Messages[:0]
+	for i, msg := range m.Messages.Messages {
+		if i >= len(m.Messages.Messages)-2 && isTranscriptEcho(msg.Text, trimmedSent) && !msg.Outgoing {
+			continue
+		}
+		filtered = append(filtered, msg)
+	}
+	m.Messages.Messages = filtered
+}
+
+func isTranscriptEcho(text string, sentText string) bool {
+	normalized, ok := transcriptEchoPayload(text)
+	if !ok || sentText == "" {
+		return false
+	}
+	return normalized == sentText
+}
+
+func transcriptEchoPayload(text string) (string, bool) {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return "", false
+	}
+
+	original := trimmed
+	if strings.HasPrefix(trimmed, "[") {
+		if close := strings.Index(trimmed, "]"); close != -1 {
+			trimmed = strings.TrimSpace(trimmed[close+1:])
+		}
+	}
+	if !strings.HasPrefix(trimmed, ">") {
+		return "", false
+	}
+
+	normalized := strings.TrimSpace(strings.TrimPrefix(trimmed, ">"))
+	if normalized == "" || original == normalized {
+		return "", false
+	}
+
+	return normalized, true
 }
 
 func (m *Model) handleDeleteShortcut() (tea.Model, tea.Cmd) {

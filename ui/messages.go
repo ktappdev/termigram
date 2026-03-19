@@ -104,7 +104,8 @@ func (m MessageViewModel) View() string {
 }
 
 func (m MessageViewModel) renderMessage(msg Message) string {
-	bubble := m.bubbleStyle(msg.Outgoing).MaxWidth(m.bubbleWidth()).Render(m.messageText(msg))
+	style := m.bubbleStyle(msg.Outgoing)
+	bubble := style.MaxWidth(m.bubbleWidth(style)).Render(m.messageText(msg))
 	bubbleWidth := lipgloss.Width(bubble)
 
 	parts := make([]string, 0, 3)
@@ -119,7 +120,8 @@ func (m MessageViewModel) renderMessage(msg Message) string {
 		align = lipgloss.Right
 	}
 
-	return lipgloss.PlaceHorizontal(m.Width, align, lipgloss.JoinVertical(lipgloss.Left, parts...))
+	block := lipgloss.JoinVertical(lipgloss.Left, parts...)
+	return lipgloss.PlaceHorizontal(m.messagePaneWidth(), align, block)
 }
 
 func (m MessageViewModel) chatContextLine() string {
@@ -146,19 +148,43 @@ func (m MessageViewModel) bubbleStyle(outgoing bool) lipgloss.Style {
 	}
 }
 
-func (m MessageViewModel) bubbleWidth() int {
-	if m.Width <= 0 {
-		return 60
-	}
-	available := m.Width - 2
+func (m MessageViewModel) bubbleWidth(style lipgloss.Style) int {
+	available := m.messagePaneWidth() - 2
 	if available < 1 {
 		available = 1
 	}
-	max := (available * 3) / 4
-	if max < 18 {
-		max = available
+
+	maxOuter := available
+	switch {
+	case available >= 96:
+		maxOuter = 72
+	case available >= 72:
+		maxOuter = (available * 2) / 3
+	case available >= 40:
+		maxOuter = (available * 7) / 10
+	case available >= 24:
+		maxOuter = (available * 4) / 5
 	}
-	return max
+
+	if maxOuter > available {
+		maxOuter = available
+	}
+	if maxOuter < 12 && available >= 12 {
+		maxOuter = 12
+	}
+
+	innerWidth := maxOuter - style.GetHorizontalFrameSize()
+	if innerWidth < 1 {
+		innerWidth = 1
+	}
+	return innerWidth
+}
+
+func (m MessageViewModel) messagePaneWidth() int {
+	if m.Width <= 0 {
+		return 60
+	}
+	return m.Width
 }
 
 func (m MessageViewModel) messageText(msg Message) string {
@@ -179,7 +205,7 @@ func (m MessageViewModel) senderLabel(msg Message, width int) string {
 	}
 
 	if width < 1 {
-		width = m.bubbleWidth()
+		width = m.bubbleWidth(m.bubbleStyle(msg.Outgoing))
 	}
 	if width < 1 {
 		width = 1
