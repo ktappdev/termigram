@@ -1,0 +1,332 @@
+{
+  "AGENTS.md": [
+    "agents",
+    "entities",
+    "workers",
+    "actors"
+  ],
+  "BRANCH_WORKFLOW.md": [
+    "branch",
+    "workflow",
+    "git",
+    "pipeline"
+  ],
+  "CONTRIBUTING.md": [
+    "contributing",
+    "dev-guide",
+    "participation",
+    "contrib"
+  ],
+  "CREDENTIALS.md": [
+    "credentials",
+    "auth",
+    "keys",
+    "secrets"
+  ],
+  "Makefile": [
+    "makefile",
+    "build",
+    "make",
+    "build-script"
+  ],
+  "README.md": [
+    "readme",
+    "intro",
+    "overview",
+    "project_info"
+  ],
+  "_config.yml": [
+    "config",
+    "settings",
+    "yaml",
+    "config-file"
+  ],
+  "animations.go": [
+    "animations",
+    "go",
+    "graphics",
+    "effects"
+  ],
+  "app.go": [
+    "application",
+    "main",
+    "server",
+    "service"
+  ],
+  "auth.go": [
+    "login",
+    "authentication",
+    "session",
+    "token"
+  ],
+  "backend.go": [
+    "server",
+    "api",
+    "backend",
+    "logic"
+  ],
+  "backend_user.go": [
+    "user",
+    "backend",
+    "profile",
+    "account"
+  ],
+  "build.sh": [
+    "script",
+    "compile",
+    "makefile",
+    "deploy"
+  ],
+  "cache.go": [
+    "memo",
+    "store",
+    "memory",
+    "cache"
+  ],
+  "chat_context.go": [
+    "context",
+    "conversation",
+    "state",
+    "dialogue"
+  ],
+  "chat_selector.go": [
+    "selector",
+    "picker",
+    "choice",
+    "chat"
+  ],
+  "chatlist.go": [
+    "conversationlist",
+    "chatindex",
+    "messagelist",
+    "chatsummary"
+  ],
+  "cli-reference.md": [
+    "commandlineguide",
+    "clidocs",
+    "terminalreference",
+    "commandguide"
+  ],
+  "cli_mode.go": [
+    "climodehandler",
+    "commandlinemode",
+    "terminalmode",
+    "cliswitch"
+  ],
+  "client.go": [
+    "networkclient",
+    "apiclient",
+    "httpclient",
+    "serviceclient"
+  ],
+  "colors.go": [
+    "colorpalette",
+    "themecolors",
+    "colorutils",
+    "colordefinitions"
+  ],
+  "commands.go": [
+    "commandlist",
+    "clicommands",
+    "commandregistry",
+    "cmdhandler"
+  ],
+  "config.go": [
+    "configuration",
+    "settings",
+    "configloader",
+    "appconfig"
+  ],
+  "config.json.example": [
+    "configsample",
+    "configtemplate",
+    "configexample",
+    "configskeleton"
+  ],
+  "contacts.go": [
+    "contact",
+    "people",
+    "addressbook",
+    "contactlist"
+  ],
+  "contacts_pagination.go": [
+    "paging contacts",
+    "contact list pagination",
+    "contacts pagination",
+    "pagination contacts"
+  ],
+  "contacts_picker.go": [
+    "contact selector",
+    "addressbook picker",
+    "contact picker",
+    "contact chooser"
+  ],
+  "context.json": [
+    "config.json",
+    "settings.json",
+    "env.json",
+    "context-file"
+  ],
+  "context.toml": [
+    "config.toml",
+    "settings.toml",
+    "environment.toml",
+    "context-file"
+  ],
+  "contributing-detail.md": [
+    "contributing guide",
+    "contribution instructions",
+    "how to contribute",
+    "contribute details"
+  ],
+  "dialogs.go": [
+    "dialog",
+    "modal dialog",
+    "popup",
+    "dialogue"
+  ],
+  "discovery.go": [
+    "search",
+    "lookup",
+    "discover",
+    "discovery service"
+  ],
+  "docs": [
+    "documentation",
+    "guide",
+    "readme",
+    "docs folder"
+  ],
+  "faq.md": [
+    "frequently asked questions",
+    "faq",
+    "help",
+    "questions guide"
+  ],
+  "features.md": [
+    "feature-list",
+    "requirements",
+    "specs",
+    "documentation"
+  ],
+  "go.mod": [
+    "module-file",
+    "dependencies",
+    "go-mod",
+    "go-module"
+  ],
+  "go.sum": [
+    "checksum-file",
+    "hashes",
+    "module-sum",
+    "sum-file"
+  ],
+  "header.go": [
+    "header-file",
+    "top-of-file",
+    "package-header",
+    "init-header"
+  ],
+  "helpers.go": [
+    "utilities",
+    "helper-functions",
+    "utils",
+    "utility-functions"
+  ],
+  "index.md": [
+    "index-file",
+    "home",
+    "overview",
+    "readme"
+  ],
+  "input.go": [
+    "input-file",
+    "reader",
+    "scanner",
+    "user-input"
+  ],
+  "install.md": [
+    "installation-guide",
+    "setup",
+    "getting-started",
+    "install"
+  ],
+  "interactive_style.go": [
+    "interactive",
+    "ui_style",
+    "layout",
+    "styling"
+  ],
+  "main.go": [
+    "main",
+    "entrypoint",
+    "app",
+    "bootstrap"
+  ],
+  "message_mapper.go": [
+    "mapper",
+    "translator",
+    "converter",
+    "message"
+  ],
+  "messages.go": [
+    "messages",
+    "msg",
+    "communication",
+    "text"
+  ],
+  "messaging.go": [
+    "messaging",
+    "pubsub",
+    "queue",
+    "communication"
+  ],
+  "modals.go": [
+    "modals",
+    "dialog",
+    "popup",
+    "modal"
+  ],
+  "mouse.go": [
+    "mouse",
+    "input",
+    "pointer",
+    "device"
+  ],
+  "quickstart.md": [
+    "quickstart",
+    "tutorial",
+    "getting-started",
+    "guide"
+  ],
+  "styles.go": [
+    "styling",
+    "theme",
+    "css",
+    "design"
+  ],
+  "tui-guide.md": [
+    "terminal guide",
+    "text ui guide",
+    "cli guide",
+    "console documentation"
+  ],
+  "ui": [
+    "user interface",
+    "frontend",
+    "ui components",
+    "view layer"
+  ],
+  "ui_backend_adapter.go": [
+    "backend adapter",
+    "server bridge",
+    "api wrapper",
+    "backend interface"
+  ],
+  "ui_deps.go": [
+    "dependencies",
+    "deps",
+    "ui requirements",
+    "module imports"
+  ]
+}
