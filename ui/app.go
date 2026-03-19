@@ -466,13 +466,6 @@ func (m *Model) appendOutgoingMessage(text string) {
 
 	m.removeTrailingTranscriptEcho(text)
 
-	if last := len(m.Messages.Messages) - 1; last >= 0 {
-		prev := m.Messages.Messages[last]
-		if prev.Outgoing && strings.TrimSpace(prev.Text) == text {
-			return
-		}
-	}
-
 	m.Messages.Messages = append(m.Messages.Messages, Message{
 		Text:     text,
 		Time:     time.Now().Format("15:04"),
