@@ -127,7 +127,8 @@ func runCLIMode(cfg Config, argv []string, rootMode string) {
 
 	fs := flag.NewFlagSet("cli", flag.ExitOnError)
 	jsonFlag := fs.Bool("json", false, "Output as JSON")
-	limitFlag := fs.Int("limit", 10, "Limit for get command")
+	limitFlag := fs.Int("limit", 10, "Limit for get/contacts commands")
+	offsetFlag := fs.Int("offset", 0, "Offset for contacts command")
 	timeoutFlag := fs.Duration("timeout", 30*time.Second, "Request timeout")
 	modeFlag := fs.String("mode", "", "Auth mode: user (default: user)")
 
@@ -160,6 +161,7 @@ func runCLIMode(cfg Config, argv []string, rootMode string) {
 		Args:    positionalArgs,
 		JSON:    *jsonFlag,
 		Limit:   limit,
+		Offset:  *offsetFlag,
 		Timeout: *timeoutFlag,
 	}
 
@@ -205,7 +207,7 @@ Usage:
 One-shot commands:
   send [--json] [--timeout 30s] <user_id|@username> <message>
   get [--json] [--timeout 30s] [--limit N] <user_id|@username>
-  contacts [--json] [--timeout 30s]
+  contacts [--json] [--timeout 30s] [--limit N] [--offset N]
   me [--json] [--timeout 30s]
   find [--json] [--timeout 30s] <prefix>
 
@@ -248,13 +250,18 @@ Examples:
   ./termigram get @ken
   ./termigram get --json --limit 20 @ken`)
 	case "contacts":
-		fmt.Println(`contacts - list contacts
+		fmt.Println(`contacts - list contacts with pagination
 
 Usage:
-  ./termigram contacts [--json] [--timeout 30s]
+  ./termigram contacts [--json] [--timeout 30s] [--limit N] [--offset N]
+
+Flags:
+  --limit N    Number of contacts per page (default 10)
+  --offset N   Starting offset for pagination (default 0)
 
 Examples:
   ./termigram contacts
+  ./termigram contacts --limit 20 --offset 40
   ./termigram contacts --json`)
 	case "me":
 		fmt.Println(`me - show current account info

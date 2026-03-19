@@ -1,2 +1,3 @@
 builder: openai-codex/gpt-5.4
+scout: ByteDanceCodingPlan/bytedance-seed-code
 subagents: openai-codex/gpt-5.4

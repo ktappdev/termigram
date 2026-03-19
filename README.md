@@ -6,34 +6,25 @@ A lightweight Telegram command-line client written in Go using MTProto (`gotd/td
 
 This is the fastest path for most users: install → run → authenticate → chat.
 
-### 1) Install
+### Install and first run
 
-If you already have a binary, skip to step 2.
+See the dedicated install guide for full setup steps, build options, and configuration:
 
-Option A (Go installed):
+- [docs/install.md](docs/install.md)
+
+Quick path:
 
 ```bash
 go install github.com/ktappdev/termigram@latest
-```
-
-Option B (from a local clone):
-
-```bash
-make build
-```
-
-### 2) Run termigram
-
-```bash
 ./termigram
 ```
 
 On first run:
 1. Enter your phone number
 2. Enter the verification code sent by Telegram
-3. Start chatting!
+3. Start chatting
 
-Your session is saved automatically (default: `~/.termigram/session.json`) and reused on subsequent runs.
+Your session is saved automatically to `~/.termigram/session.json` by default.
 
 Send your first message:
 
@@ -41,15 +32,11 @@ Send your first message:
 \msg @username Hello!
 ```
 
-Or pick a chat and then send plain text:
+Or open the interactive chat picker:
 
 ```text
 \chats
 ```
-
-Select a chat with arrows + Enter, then just type messages directly.
-
----
 
 ## Everyday usage
 
@@ -60,13 +47,13 @@ Select a chat with arrows + Enter, then just type messages directly.
 - `\find <prefix>`
 - `\msg <id|@username> <text>`
 - `\to <id|@username>`
-- `\chats` (interactive picker with filter + arrows + Enter)
+- `\chats`
 - `\here`
 - `\close`
 - `\help`
 - `\quit`
 
-### One-shot CLI mode (scripting + AI agents)
+### One-shot CLI mode
 
 Use termigram non-interactively for scripts, cron jobs, and AI agents.
 
@@ -74,15 +61,11 @@ Use termigram non-interactively for scripts, cron jobs, and AI agents.
 ./termigram <command> [--json] [--timeout 30s] [command flags] [arguments]
 ```
 
-#### Authentication prerequisite (important)
-
 Before one-shot commands work, run interactive once and complete phone login:
 
 ```bash
 ./termigram
 ```
-
-That creates/reuses a local session (default: `~/.termigram/session.json`).
 
 #### Command reference
 
@@ -95,173 +78,24 @@ That creates/reuses a local session (default: `~/.termigram/session.json`).
 #### Flags and options
 
 - `--json`: machine-readable output envelope (`success`, `data`, `error`)
-- `--timeout 30s`: command timeout (Go duration syntax, e.g. `10s`, `1m`)
+- `--timeout 30s`: command timeout
 - `--limit N`: only for `get` (default `10`)
-
----
-
-#### `send` (send a message)
-
-```bash
-./termigram send --json @ken "Hello from automation"
-```
-
-Example JSON output:
-
-```json
-{
-  "success": true,
-  "data": {
-    "target": "@ken",
-    "message": "Hello from automation",
-    "timestamp": 1719012345,
-    "sent_to": "ken",
-    "user_id": 123456789
-  }
-}
-```
-
-#### `get` (fetch recent messages)
-
-```bash
-./termigram get --json --limit 5 @ken
-```
-
-Example JSON output:
-
-```json
-{
-  "success": true,
-  "data": {
-    "target": "@ken",
-    "count": 2,
-    "user": "ken",
-    "user_id": 123456789,
-    "messages": [
-      {
-        "id": 101,
-        "from_id": 123456789,
-        "from_name": "Ken",
-        "message": "hey",
-        "date": 1719012301
-      },
-      {
-        "id": 102,
-        "from_id": 555000111,
-        "from_name": "You",
-        "message": "hello",
-        "date": 1719012345
-      }
-    ]
-  }
-}
-```
-
-#### `contacts` (list contacts)
-
-```bash
-./termigram contacts --json
-```
-
-Example JSON output:
-
-```json
-{
-  "success": true,
-  "data": {
-    "count": 2,
-    "contacts": [
-      {
-        "user_id": 123456789,
-        "first_name": "Ken",
-        "last_name": "Taylor",
-        "username": "ken"
-      },
-      {
-        "user_id": 987654321,
-        "first_name": "Alex",
-        "last_name": "Doe"
-      }
-    ]
-  }
-}
-```
-
-#### `me` (current account)
-
-```bash
-./termigram me --json
-```
-
-Example JSON output:
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 555000111,
-    "first_name": "Your",
-    "last_name": "Name",
-    "username": "yourname",
-    "phone": "+1555000111"
-  }
-}
-```
-
-#### `find` (username prefix lookup from cache)
-
-```bash
-./termigram find --json ke
-```
-
-Example JSON output:
-
-```json
-{
-  "success": true,
-  "data": {
-    "prefix": "ke",
-    "count": 3,
-    "matches": [
-      "@ken",
-      "@kendra",
-      "@kevin"
-    ]
-  }
-}
-```
-
----
 
 #### Common automation patterns
 
-- Send alert from script:
-
 ```bash
 ./termigram send --json @oncall "Job failed: nightly-import"
-```
-
-- Poll recent messages and parse with `jq`:
-
-```bash
 ./termigram get --json --limit 20 @ken | jq '.data.messages[] | {id, from_name, message}'
-```
-
-- Resolve self identity for diagnostics:
-
-```bash
 ./termigram me --json | jq '.data.id'
 ```
 
 #### Tips for AI agents
 
 - Prefer `--json` for deterministic parsing.
-- Treat non-zero exit codes as failures; parse stderr for details.
-- Use explicit `--timeout` in automation to avoid hanging tasks.
-- Run one auth bootstrap step (`./termigram`) in environment setup before automated one-shot commands.
-- Place flags before positional args (Go flag parsing behavior).
-
----
+- Treat non-zero exit codes as failures.
+- Use explicit `--timeout` in automation.
+- Run one auth bootstrap step before automated one-shot commands.
+- Place flags before positional args.
 
 ## Features overview
 
@@ -276,113 +110,44 @@ Example JSON output:
 
 The repo also contains a Bubble Tea-based UI implementation and related docs/components.
 
-#### Features Overview
+#### Features
 
-- **Split-pane layout** - Chat list on the left (30%), message view on the right (70%)
-- **Real-time updates** - Connection status, typing indicators, and message delivery confirmations
-- **Message bubbles** - Styled incoming/outgoing messages with timestamps and read receipts
-- **Search** - Filter chats by name or username with `Ctrl+F`
-- **Unread indicators** - Badge showing unread message count per chat
-- **Draft support** - Automatically saves unsent messages
-- **Reply threads** - Visual indication when replying to specific messages
-- **Responsive design** - Adapts to terminal size, switches to mobile view on small screens
-- **Telegram dark theme** - Color scheme matching Telegram Desktop for familiarity
+- Split-pane layout
+- Real-time updates
+- Message bubbles
+- Search
+- Unread indicators
+- Draft support
+- Reply threads
+- Responsive design
+- Telegram dark theme
 
-#### Keyboard Shortcuts
-
-##### Navigation
+#### Keyboard shortcuts
 
 | Shortcut | Action |
 |----------|--------|
 | `↑` / `↓` | Navigate chats / scroll messages |
 | `Enter` | Open selected chat / Send message |
 | `Esc` | Go back to chat list / Cancel reply |
-| `←` / `→` | Navigate between panels (desktop view) |
-| `Home` | Jump to first message |
-| `End` | Jump to latest message |
-
-##### Actions
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+C` | Quit application (from chat list) |
+| `Ctrl+C` | Quit application |
 | `Ctrl+N` | Start new conversation |
 | `Ctrl+F` | Focus search bar |
 | `Ctrl+Enter` | New line in message |
-| `Ctrl+\` | Toggle sidebar collapse |
 | `/` | Focus message input |
 | `?` | Show help |
-| `Tab` | Open attachment menu |
 
-##### Message Actions (in message view)
+#### Responsive layout
 
-| Shortcut | Action |
-|----------|--------|
-| `R` | Reply to message |
-| `F` | Forward message |
-| `D` | Delete message |
-| `Ctrl+C` | Copy message text |
-
-#### Mouse Usage
-
-- **Click on chat** - Select and open a chat from the sidebar
-- **Scroll wheel** - Scroll through chat list or messages
-- **Click on input area** - Focus the message input field
-- **Click on buttons** - Interact with modal dialog buttons
-
-#### Responsive Layout
-
-##### Desktop View (≥60 columns)
-- **Chat list**: 30% width on the left
-- **Message view**: 70% width on the right
-- **Input area**: Full width below messages
-- All panels visible simultaneously
-
-##### Mobile View (<60 columns)
-- **Single panel view** - Shows either chat list or messages
-- **Navigation**: Use `Enter` to open chat, `Esc` to return to chat list
-- **Full width** - Active panel uses entire terminal width
-- **Optimized for** - SSH sessions, small terminals, split windows
-
-##### Minimum Requirements
-- **Minimum width**: 40 columns (mobile view)
-- **Recommended**: 80+ columns for optimal desktop experience
-- **Minimum height**: 20 rows
-
-#### Color Scheme
-
-- **Background**: Deep blue-gray (#17212b, #0e1621)
-- **Message bubbles**: Blue for incoming, dark for outgoing
-- **Text**: White for primary, gray for timestamps/metadata
-- **Accents**: Green for online status, blue for links, red for errors
-- **Status indicators**: Color-coded connection status (blue=connected, yellow=connecting, red=disconnected)
-
-#### Status Indicators
-
-| Indicator | Meaning |
-|-----------|---------|
-| 🔵 Connected | Successfully connected to Telegram |
-| 🟡 Connecting | Establishing connection |
-| 🔴 Disconnected | Connection lost or failed |
-| ✓ | Message sent (delivered to server) |
-| ✓✓ | Message read (green when read by recipient) |
-| ● (green) | User is online |
-| "typing..." | User is currently typing |
-
----
+- Desktop view: split chat list and message view
+- Mobile view: single active panel
+- Recommended width: 80+ columns
+- Minimum height: 20 rows
 
 ## Help and version
 
 ```bash
 ./termigram --help
-./termigram -h
 ./termigram --version
-./termigram -v
-```
-
-Per-command help:
-
-```bash
 ./termigram send --help
 ./termigram get --help
 ./termigram contacts --help
@@ -390,71 +155,34 @@ Per-command help:
 ./termigram find --help
 ```
 
----
+## Documentation guides
 
-## Build (from source)
+For content moved out of the main README, see:
 
-This section is intentionally last for users who want to build locally.
+- [docs/install.md](docs/install.md)
+- [docs/faq.md](docs/faq.md)
+- [docs/index.md](docs/index.md)
+- [docs/quickstart.md](docs/quickstart.md)
+- [BRANCH_WORKFLOW.md](BRANCH_WORKFLOW.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
 
-Use one command:
+## GitHub Pages docs workflow
 
-```bash
-make build
-```
+GitHub Pages documentation updates should explicitly target the `dev` branch.
 
-`make build` runs `./build.sh`, which automatically:
-- uses `git describe --tags --dirty` as version (when tags exist)
-- falls back to `dev` when no tags are available
-- injects version via ldflags
+Task links for this docs workflow update:
 
-Optional manual override:
+- `termigram-86w`
+- `termigram-9mr`
+- `termigram-vzq`
 
-```bash
-make build-version VERSION=1.2.3
-```
+Use this workflow when updating published docs:
 
----
-
-## Advanced configuration
-
-Most released builds can run immediately using baked-in Telegram API credentials. Credential lookup order is:
-
-1. `TELEGRAM_APP_ID` / `TELEGRAM_APP_HASH`
-2. `config.json` next to the executable
-3. baked-in build credentials
-
-This keeps normal usage simple while still letting developers and maintainers override credentials when needed.
-
-### Session storage
-
-By default, sessions are stored at `~/.termigram/session.json`. Override with:
-
-```bash
-export TELEGRAM_SESSION_PATH=/custom/path/session.json
-```
-
-### Override Telegram API credentials
-
-Use environment variables to override any configured or baked-in credentials:
-
-```bash
-export TELEGRAM_APP_ID=your_app_id
-export TELEGRAM_APP_HASH=your_app_hash
-```
-
-Or create `config.json` next to the executable by copying `config.json.example` and filling in your own values.
-
-Need your own Telegram app credentials? Create them at [https://my.telegram.org](https://my.telegram.org).
-
-### Environment variables
-
-| Variable | Description |
-|----------|-------------|
-| `TELEGRAM_APP_ID` | Override Telegram app id |
-| `TELEGRAM_APP_HASH` | Override Telegram app hash |
-| `TELEGRAM_SESSION_PATH` | Custom session file location |
-
----
+1. Create your docs branch from `dev`
+2. Open your pull request against `dev`
+3. Verify documentation workflow references and deployment guidance point to `dev`
+4. Merge into `dev`
+5. Confirm the GitHub Pages site reflects the merged change
 
 ## License
 

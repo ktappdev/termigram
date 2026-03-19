@@ -1,0 +1,83 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches:
+      # Replace [ACTIVE_BRANCH] with the branch that should publish GitHub Pages.
+      # Example: - 'develop' or - 'release/site-preview'
+      - '[ACTIVE_BRANCH]'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-[ACTIVE_BRANCH]
+  cancel-in-progress: true
+
+jobs:
+  branch-guard:
+    name: Verify active branch placeholder and ref
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prevent accidental deployment from the wrong branch
+        env:
+          ACTIVE_BRANCH: "[ACTIVE_BRANCH]"
+        run: |
+          if [ "$ACTIVE_BRANCH" = '[ACTIVE_BRANCH]' ]; then
+            echo "Replace [ACTIVE_BRANCH] in .github/workflows/pages.yml before enabling this workflow."
+            exit 1
+          fi
+
+          if [ "${GITHUB_REF}" != "refs/heads/${ACTIVE_BRANCH}" ]; then
+            echo "This workflow only deploys from refs/heads/${ACTIVE_BRANCH}. Current ref: ${GITHUB_REF}"
+            exit 1
+          fi
+
+  build:
+    name: Build Jekyll site
+    needs: branch-guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./_site
+
+      - name: Verify sitemap.xml exists before deployment
+        run: |
+          if [ ! -f ./_site/sitemap.xml ]; then
+            echo "Expected ./_site/sitemap.xml after Jekyll build."
+            echo "Enable the jekyll-sitemap plugin or add a sitemap generator before deployment."
+            exit 1
+          fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_site
+
+  deploy:
+    name: Deploy GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+# Branch protection note:
+# After substituting [ACTIVE_BRANCH], configure that branch in GitHub settings to require
+# the sitemap workflow check before merges so untested content cannot reach deployment.
