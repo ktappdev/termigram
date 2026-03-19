@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	tea "github.com/charmbracelet/bubbletea"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,6 +34,7 @@ type TelegramCLI struct {
 	chatLastMessage   map[string]string
 	chatUnreadCount   map[string]int
 	seenIncoming      map[string]time.Time
+	tuiProgram        *tea.Program
 }
 
 func NewTelegramCLI(appID int, appHash string, sessionPath string) *TelegramCLI {
@@ -64,7 +66,7 @@ func NewTelegramCLI(appID int, appHash string, sessionPath string) *TelegramCLI 
 	return cli
 }
 
-func (cli *TelegramCLI) Run() error {
+func (cli *TelegramCLI) RunLegacy() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	cli.ctx = ctx
 	cli.cancel = cancel
@@ -185,6 +187,10 @@ func (cli *TelegramCLI) processShortUserMessage(update *tg.UpdateShortMessage) {
 		},
 	}
 	cli.printMessage(msg)
+}
+
+func (cli *TelegramCLI) Run() error {
+	return cli.RunLegacy()
 }
 
 func (cli *TelegramCLI) processShortChatMessage(update *tg.UpdateShortChatMessage) {

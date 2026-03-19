@@ -3,8 +3,6 @@ package ui
 import (
 	"context"
 	"fmt"
-	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -75,9 +73,6 @@ func NewModel(ctx context.Context, backend Backend) Model {
 	header.Status = StatusConnecting
 	header.Username = "guest"
 
-	input := NewInputArea()
-	input.ReplyTo = "Alice"
-
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -87,7 +82,7 @@ func NewModel(ctx context.Context, backend Backend) Model {
 		Header:          header,
 		ChatList:        NewChatList(),
 		Messages:        NewMessageView(),
-		Input:           input,
+		Input:           NewInputArea(),
 		Focus:           focusInput,
 		animationActive: false,
 		NewChatModal:    NewNewChatModal(),
@@ -101,7 +96,7 @@ func NewModel(ctx context.Context, backend Backend) Model {
 
 // Init starts the Bubble Tea program.
 func (m Model) Init() tea.Cmd {
-	cmds := []tea.Cmd{}
+	cmds := []tea.Cmd{m.Input.InitCmd()}
 	if m.backend == nil {
 		m.Header.Status = StatusDisconnected
 		m.lastError = "backend unavailable; running in stub mode"
@@ -146,36 +141,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.lastError = ""
-		m.ChatList.Chats = make([]ChatItem, 0, len(msg.Dialogs))
-		for _, dialog := range msg.Dialogs {
-			m.ChatList.Chats = append(m.ChatList.Chats, ChatItem{
-				Title:       dialog.Title,
-				Target:      dialog.Target,
-				LastMessage: dialog.LastMessage,
-				LastTime:    dialog.LastTime,
-				Online:      dialog.Online,
-				UnreadCount: dialog.UnreadCount,
-			})
-		}
-		if len(m.ChatList.Chats) == 0 {
-			m.ChatList.SelectedIdx = 0
-			m.Messages.Messages = nil
-			m.syncHeaderChat()
-			return m, nil
-		}
-		if m.ChatList.SelectedIdx >= len(m.ChatList.Chats) {
-			m.ChatList.SelectedIdx = len(m.ChatList.Chats) - 1
-		}
-		m.syncHeaderChat()
-		return m, m.loadMessagesCmd()
+		return m, m.applyDialogs(msg.Dialogs)
 	case backendMessagesMsg:
 		if msg.Err != nil {
 			m.lastError = msg.Err.Error()
 			return m, nil
 		}
 		m.lastError = ""
-		m.Messages.Messages = mapBackendMessages(msg.Messages, msg.ChatTitle, msg.Target)
-		m.Messages.Scroll = m.Messages.maxScroll()
+		m.Messages.SetMessages(mapBackendMessages(msg.Messages, msg.ChatTitle, msg.Target))
+		m.markSelectedChatRead()
 		return m, nil
 	case backendSendMsg:
 		if msg.Err != nil {
@@ -184,123 +158,110 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.lastError = ""
 		m.appendOutgoingMessage(msg.Text)
-		m.Messages.Scroll = m.Messages.maxScroll()
+		return m, nil
+	case IncomingMessageMsg:
+		m.handleIncomingMessage(msg)
 		return m, nil
 	case tea.WindowSizeMsg:
-		prevCompact := m.compactLayout
-		m.Width = msg.Width
-		m.Height = msg.Height
-		m.layoutComponents()
-		if prevCompact != m.compactLayout {
-			if m.compactLayout {
-				m.lastNotice = "Compact layout enabled"
-				if m.Focus == focusMessages || m.Focus == focusInput {
-					m.Focus = focusMessages
-				}
-			} else {
-				m.lastNotice = "Split layout enabled"
-			}
-		}
-
-		headerSize := tea.WindowSizeMsg{Width: m.Width, Height: m.headerBlockHeight()}
-		chatSize := tea.WindowSizeMsg{Width: m.ChatList.Width, Height: m.ChatList.Height}
-		messageSize := tea.WindowSizeMsg{Width: m.Messages.Width, Height: m.Messages.Height}
-		inputSize := tea.WindowSizeMsg{Width: m.Width, Height: m.inputBlockHeight()}
-		modalSize := tea.WindowSizeMsg{Width: m.Width, Height: m.Height}
-
-		m.Header = m.Header.Update(headerSize)
-		m.ChatList = m.ChatList.Update(chatSize)
-		m.Messages = m.Messages.Update(messageSize)
-		m.Input = m.Input.Update(inputSize)
-		m.NewChatModal = m.NewChatModal.Update(modalSize)
-		m.SettingsModal = m.SettingsModal.Update(modalSize)
+		m.applyWindowSize(msg)
 		return m, nil
 	case tea.MouseMsg:
 		return m.handleMouse(msg)
 	case tea.KeyMsg:
-		key := msg.String()
-		if m.ActiveModal != modalNone {
-			return m.handleModalKey(msg)
-		}
-		switch key {
-		case "ctrl+c":
-			return m, tea.Quit
-		case "?":
-			m.ShowHelp = !m.ShowHelp
-			return m, nil
-		}
+		return m.handleKeyMsg(msg)
+	}
 
-		if m.ShowHelp {
-			if key == "esc" {
-				m.ShowHelp = false
-			}
-			return m, nil
-		}
+	switch m.Focus {
+	case focusMessages:
+		m.Messages = m.Messages.Update(msg)
+	case focusInput:
+		m.Input = m.Input.Update(msg)
+		return m, tea.Batch(m.consumeSentMessagesCmd(), m.maybeStartAnimationCmd())
+	}
+	return m, nil
+}
 
-		switch key {
-		case "tab":
-			m.Focus = (m.Focus + 1) % 3
-			m.lastNotice = "Focus: " + m.focusLabel()
-			return m, nil
-		case "shift+tab":
-			m.Focus = (m.Focus + 2) % 3
-			m.lastNotice = "Focus: " + m.focusLabel()
-			return m, nil
-		case "ctrl+n":
-			m.ActiveModal = modalNewChat
-			m.NewChatModal.Search.SetValue("")
-			m.NewChatModal.Selected = 0
-			m.lastNotice = "New chat"
-			return m, nil
-		case "ctrl+,":
-			m.ActiveModal = modalSettings
-			m.lastNotice = "Settings"
-			return m, nil
-		case "ctrl+f":
-			m.Focus = focusChatList
-			m.ChatList.SearchMode = true
-			m.lastNotice = "Search chats"
-			return m, nil
-		case "r":
+func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+	if m.ActiveModal != modalNone {
+		return m.handleModalKey(msg)
+	}
+
+	switch key {
+	case "ctrl+c":
+		return m, tea.Quit
+	case "?":
+		m.ShowHelp = !m.ShowHelp
+		return m, nil
+	}
+
+	if m.ShowHelp {
+		if key == "esc" {
+			m.ShowHelp = false
+		}
+		return m, nil
+	}
+
+	switch key {
+	case "tab":
+		m.Focus = (m.Focus + 1) % 3
+		m.lastNotice = "Focus: " + m.focusLabel()
+		return m, nil
+	case "shift+tab":
+		m.Focus = (m.Focus + 2) % 3
+		m.lastNotice = "Focus: " + m.focusLabel()
+		return m, nil
+	case "ctrl+f":
+		m.Focus = focusChatList
+		m.ChatList.SearchMode = true
+		m.lastNotice = "Search chats"
+		return m, nil
+	case "ctrl+n":
+		m.lastNotice = "New chat creation is not wired in TUI yet; use --ui=legacy if needed"
+		return m, nil
+	case "ctrl+,":
+		m.lastNotice = "Settings are not wired in TUI yet"
+		return m, nil
+	case "r":
+		m.Focus = focusInput
+		m.Input.ReplyTo = m.selectedChatTitle()
+		m.lastNotice = "Replying to " + m.Input.ReplyTo
+		return m, nil
+	case "d":
+		return m.handleDeleteShortcut()
+	case "enter":
+		if m.Focus == focusChatList {
 			m.Focus = focusInput
-			m.Input.ReplyTo = m.selectedChatTitle()
-			m.lastNotice = "Replying to " + m.Input.ReplyTo
-			return m, nil
-		case "d":
-			return m.handleDeleteShortcut()
-		case "enter":
-			if m.Focus == focusChatList {
-				m.Focus = focusMessages
-				m.syncHeaderChat()
-				m.lastNotice = "Opened " + m.selectedChatTitle()
-				return m, m.loadMessagesCmd()
-			}
-		case "esc":
-			if m.Focus != focusInput {
-				m.Focus = focusChatList
-				m.ChatList.SearchMode = false
-				m.lastNotice = "Focus: chats"
-				return m, nil
-			}
+			m.markSelectedChatRead()
+			m.syncHeaderChat()
+			m.lastNotice = "Opened " + m.selectedChatTitle()
+			return m, m.loadMessagesCmd()
 		}
-
-		switch m.Focus {
-		case focusChatList:
-			before := m.ChatList.SelectedIdx
-			m.ChatList = m.ChatList.Update(msg)
-			if m.ChatList.SelectedIdx != before {
-				m.syncHeaderChat()
-				return m, m.loadMessagesCmd()
-			}
-		case focusMessages:
-			m.Messages = m.Messages.Update(msg)
-		case focusInput:
-			m.Input = m.Input.Update(msg)
-			sendCmd := m.consumeSentMessagesCmd()
-			return m, tea.Batch(sendCmd, m.maybeStartAnimationCmd())
+	case "esc":
+		if m.Focus != focusInput {
+			m.Focus = focusChatList
+			m.ChatList.SearchMode = false
+			m.lastNotice = "Focus: chats"
+			return m, nil
 		}
 	}
 
+	switch m.Focus {
+	case focusChatList:
+		before := m.selectedChatTarget()
+		m.ChatList = m.ChatList.Update(msg)
+		after := m.selectedChatTarget()
+		if after != before {
+			m.markSelectedChatRead()
+			m.syncHeaderChat()
+			return m, m.loadMessagesCmd()
+		}
+	case focusMessages:
+		m.Messages = m.Messages.Update(msg)
+	case focusInput:
+		m.Input = m.Input.Update(msg)
+		return m, tea.Batch(m.consumeSentMessagesCmd(), m.maybeStartAnimationCmd())
+	}
 	return m, nil
 }
 
@@ -315,33 +276,34 @@ func (m Model) View() string {
 	headerView := header.View()
 	inputView := m.Input.View()
 	shortcutBar := m.renderShortcutBar()
-
 	bodyHeight := m.bodyHeight()
 
 	compact := m.isCompactLayout()
-	sidebarWidth, messageWidth := m.computePaneWidths()
+	sidebarWidth, _ := m.computePaneWidths()
 	body := ""
 	if compact {
-		modeLine := lipgloss.NewStyle().
+		modeStyle := lipgloss.NewStyle().
 			Background(TelegramDark.BgSecondary).
 			Foreground(TelegramDark.TextSecondary).
-			Padding(0, 1).
-			Width(m.Width).
-			Render(m.compactModeLabel())
+			Padding(0, 1)
+		modeLine := modeStyle.Width(widthWithinStyle(m.Width, modeStyle)).Render(m.compactModeLabel())
 		panelHeight := bodyHeight - 1
 		if panelHeight < 1 {
 			panelHeight = 1
 		}
 		if m.Focus == focusChatList {
-			bodyPanel := m.ChatList.BaseStyle.Width(m.Width).Height(panelHeight).Render(m.ChatList.View())
+			bodyPanel := m.ChatList.View()
 			body = lipgloss.JoinVertical(lipgloss.Left, modeLine, bodyPanel)
 		} else {
-			bodyPanel := m.Messages.BaseStyle.Width(m.Width).Height(panelHeight).Render(m.Messages.View())
+			bodyPanel := m.Messages.View()
 			body = lipgloss.JoinVertical(lipgloss.Left, modeLine, bodyPanel)
 		}
 	} else {
-		chatPanel := m.Styles.SidebarBorder.Width(sidebarWidth).Height(bodyHeight).Render(m.ChatList.View())
-		messagePanel := m.Messages.BaseStyle.Width(messageWidth).Height(bodyHeight).Render(m.Messages.View())
+		chatPanel := m.Styles.SidebarBorder.
+			Width(widthWithinStyle(sidebarWidth, m.Styles.SidebarBorder)).
+			Height(bodyHeight).
+			Render(m.ChatList.View())
+		messagePanel := m.Messages.View()
 		body = lipgloss.JoinHorizontal(lipgloss.Top, chatPanel, messagePanel)
 	}
 
@@ -371,377 +333,44 @@ func (m Model) View() string {
 	return base
 }
 
-func (m *Model) layoutComponents() {
-	m.compactLayout = m.isCompactLayout()
+func (m *Model) applyWindowSize(msg tea.WindowSizeMsg) {
+	prevCompact := m.compactLayout
+	m.Width = msg.Width
+	m.Height = msg.Height
+	m.Input = m.Input.Update(tea.WindowSizeMsg{Width: m.Width, Height: msg.Height})
+	m.layoutComponents()
+	if prevCompact != m.compactLayout {
+		if m.compactLayout {
+			m.lastNotice = "Compact layout enabled"
+			if m.Focus == focusMessages {
+				m.Focus = focusInput
+			}
+		} else {
+			m.lastNotice = "Split layout enabled"
+		}
+	}
 
-	bodyHeight := m.bodyHeight()
-	sidebarWidth, messageWidth := m.computePaneWidths()
+	headerSize := tea.WindowSizeMsg{Width: m.Width, Height: m.headerBlockHeight()}
+	chatSize := tea.WindowSizeMsg{Width: m.ChatList.Width, Height: m.ChatList.Height}
+	messageSize := tea.WindowSizeMsg{Width: m.Messages.Width, Height: m.Messages.Height}
+	modalSize := tea.WindowSizeMsg{Width: m.Width, Height: m.Height}
 
-	m.Header.Width = m.Width
-	m.ChatList.Width = m.chatPanelContentWidth(sidebarWidth)
-	m.ChatList.Height = bodyHeight
-	m.Messages.Width = messageWidth
-	m.Messages.Height = bodyHeight
-	m.Input.Width = m.Width
+	m.Header = m.Header.Update(headerSize)
+	m.ChatList = m.ChatList.Update(chatSize)
+	m.Messages = m.Messages.Update(messageSize)
+	m.NewChatModal = m.NewChatModal.Update(modalSize)
+	m.SettingsModal = m.SettingsModal.Update(modalSize)
 }
 
-func (m Model) loadAuthCmd() tea.Cmd {
-	if m.backend == nil {
-		return nil
-	}
-	return func() tea.Msg {
-		authorized, err := m.backend.IsAuthorized(m.ctx)
-		if err != nil {
-			return backendAuthMsg{Err: err}
-		}
-		if !authorized {
-			return backendAuthMsg{Err: fmt.Errorf("not authenticated")}
-		}
-		self, err := m.backend.GetSelf(m.ctx)
-		if err != nil {
-			return backendAuthMsg{Err: err}
-		}
-		return backendAuthMsg{Username: self.Username}
-	}
-}
-
-func (m Model) loadDialogsCmd() tea.Cmd {
-	if m.backend == nil {
-		return nil
-	}
-	return func() tea.Msg {
-		dialogs, err := m.backend.GetDialogs(m.ctx, 50)
-		return backendDialogsMsg{Dialogs: dialogs, Err: err}
-	}
-}
-
-func (m Model) loadMessagesCmd() tea.Cmd {
-	if m.backend == nil {
-		return nil
-	}
-	chat, ok := m.selectedChat()
-	if !ok {
-		return nil
-	}
-	target := m.currentTarget()
-	if target == "" {
-		return nil
-	}
-	return func() tea.Msg {
-		messages, err := m.backend.GetMessages(m.ctx, target, 20)
-		return backendMessagesMsg{Target: target, ChatTitle: chat.Title, Messages: messages, Err: err}
-	}
-}
-
-func (m *Model) consumeSentMessagesCmd() tea.Cmd {
-	if m.lastSentSeen >= len(m.Input.Sent) {
-		return nil
-	}
-	cmds := make([]tea.Cmd, 0, len(m.Input.Sent)-m.lastSentSeen)
-	target := m.currentTarget()
-	for m.lastSentSeen < len(m.Input.Sent) {
-		text := m.Input.Sent[m.lastSentSeen]
-		m.lastSentSeen++
-		if m.backend == nil || target == "" {
-			msgText := text
-			cmds = append(cmds, func() tea.Msg {
-				return backendSendMsg{Text: msgText}
-			})
-			continue
-		}
-		msgText := text
-		cmds = append(cmds, func() tea.Msg {
-			err := m.backend.SendMessage(m.ctx, target, msgText)
-			return backendSendMsg{Text: msgText, Err: err}
-		})
-	}
-	return tea.Batch(cmds...)
-}
-
-func (m *Model) appendOutgoingMessage(text string) {
-	text = strings.TrimSpace(text)
-	if text == "" {
-		return
-	}
-
-	m.removeTrailingTranscriptEcho(text)
-
-	m.Messages.Messages = append(m.Messages.Messages, Message{
-		Text:     text,
-		Time:     time.Now().Format("15:04"),
-		Sender:   "You",
-		Chat:     chatLabel(m.selectedChatTitle(), m.currentTarget(), ""),
-		Outgoing: true,
-		Read:     false,
-	})
-}
-
-func (m *Model) removeTrailingTranscriptEcho(sentText string) {
-	if len(m.Messages.Messages) == 0 {
-		return
-	}
-
-	trimmedSent := strings.TrimSpace(sentText)
-	filtered := m.Messages.Messages[:0]
-	for i, msg := range m.Messages.Messages {
-		if i >= len(m.Messages.Messages)-2 && isTranscriptEcho(msg.Text, trimmedSent) && !msg.Outgoing {
-			continue
-		}
-		filtered = append(filtered, msg)
-	}
-	m.Messages.Messages = filtered
-}
-
-func isTranscriptEcho(text string, sentText string) bool {
-	normalized, ok := transcriptEchoPayload(text)
-	if !ok || sentText == "" {
-		return false
-	}
-	return normalized == sentText
-}
-
-func transcriptEchoPayload(text string) (string, bool) {
-	trimmed := strings.TrimSpace(text)
-	if trimmed == "" {
-		return "", false
-	}
-
-	original := trimmed
-	if strings.HasPrefix(trimmed, "[") {
-		if close := strings.Index(trimmed, "]"); close != -1 {
-			trimmed = strings.TrimSpace(trimmed[close+1:])
-		}
-	}
-	if !strings.HasPrefix(trimmed, ">") {
-		return "", false
-	}
-
-	normalized := strings.TrimSpace(strings.TrimPrefix(trimmed, ">"))
-	if normalized == "" || original == normalized {
-		return "", false
-	}
-
-	return normalized, true
-}
-
-func (m *Model) handleDeleteShortcut() (tea.Model, tea.Cmd) {
-	switch m.Focus {
-	case focusChatList:
-		filtered, indices := m.ChatList.filteredChats()
-		if len(filtered) == 0 {
-			m.lastNotice = "No chat to delete"
-			return m, nil
-		}
-		sel := m.ChatList.SelectedIdx
-		if sel < 0 || sel >= len(filtered) {
-			sel = 0
-		}
-		actualIdx := indices[sel]
-		deleted := m.ChatList.Chats[actualIdx].Title
-		m.ChatList.Chats = append(m.ChatList.Chats[:actualIdx], m.ChatList.Chats[actualIdx+1:]...)
-		if m.ChatList.SelectedIdx >= len(filtered)-1 && m.ChatList.SelectedIdx > 0 {
-			m.ChatList.SelectedIdx--
-		}
-		m.lastNotice = "Deleted chat: " + deleted
-		return m, m.loadMessagesCmd()
-	case focusMessages:
-		if len(m.Messages.Messages) == 0 {
-			m.lastNotice = "No message to delete"
-			return m, nil
-		}
-		m.Messages.Messages = m.Messages.Messages[:len(m.Messages.Messages)-1]
-		m.Messages.Scroll = m.Messages.maxScroll()
-		m.lastNotice = "Deleted latest message"
-		return m, nil
+func (m Model) renderModalOverlay(base string) string {
+	switch m.ActiveModal {
+	case modalNewChat:
+		return m.NewChatModal.View()
+	case modalSettings:
+		return m.SettingsModal.View()
 	default:
-		m.lastNotice = "Delete works in chats/messages panels"
-		return m, nil
+		return base
 	}
-}
-
-func (m Model) currentTarget() string {
-	chat, ok := m.selectedChat()
-	if !ok {
-		return ""
-	}
-	if chat.Target != "" {
-		return chat.Target
-	}
-	fallback := strings.ToLower(strings.ReplaceAll(chat.Title, " ", ""))
-	if fallback == "" {
-		return ""
-	}
-	return "@" + fallback
-}
-
-func (m Model) selectedChatTitle() string {
-	chat, ok := m.selectedChat()
-	if !ok {
-		return "chat"
-	}
-	return chat.Title
-}
-
-func (m Model) selectedChat() (ChatItem, bool) {
-	filtered, _ := m.ChatList.filteredChats()
-	if len(filtered) == 0 {
-		return ChatItem{}, false
-	}
-	idx := m.ChatList.SelectedIdx
-	if idx < 0 || idx >= len(filtered) {
-		idx = 0
-	}
-	return filtered[idx], true
-}
-
-func (m Model) focusLabel() string {
-	switch m.Focus {
-	case focusChatList:
-		return "chats"
-	case focusMessages:
-		return "messages"
-	default:
-		return "input"
-	}
-}
-
-func (m Model) needsAnimation() bool {
-	if m.Input.Typing {
-		return true
-	}
-	return m.Header.Status == StatusConnected || m.Header.Status == StatusConnecting
-}
-
-func (m *Model) maybeStartAnimationCmd() tea.Cmd {
-	if m.animationActive || !m.needsAnimation() {
-		return nil
-	}
-	m.animationActive = true
-	return animationTickCmd()
-}
-
-func (m Model) isCompactLayout() bool {
-	return m.Width > 0 && m.Width < compactWidthThreshold
-}
-
-func (m Model) statusLineHeight() int {
-	if m.lastError != "" || m.lastNotice != "" {
-		return 1
-	}
-	return 0
-}
-
-func (m Model) bodyHeight() int {
-	bodyHeight := m.Height - m.headerBlockHeight() - m.inputBlockHeight() - 1 - m.statusLineHeight()
-	if m.isCompactLayout() {
-		bodyHeight-- // compact mode label row
-	}
-	if bodyHeight < 1 {
-		bodyHeight = 1
-	}
-	return bodyHeight
-}
-
-func (m Model) headerBlockHeight() int {
-	return 2
-}
-
-func (m Model) computePaneWidths() (int, int) {
-	if m.isCompactLayout() {
-		return m.Width, m.Width
-	}
-
-	sidebarWidth := m.Width * 30 / 100
-	if sidebarWidth < 24 {
-		sidebarWidth = 24
-	}
-	if sidebarWidth > m.Width-20 {
-		sidebarWidth = m.Width / 3
-	}
-	messageWidth := m.Width - sidebarWidth
-	if messageWidth < 1 {
-		messageWidth = 1
-	}
-	return sidebarWidth, messageWidth
-}
-
-func (m Model) chatPanelContentWidth(sidebarWidth int) int {
-	if m.isCompactLayout() {
-		return sidebarWidth
-	}
-	if sidebarWidth <= 1 {
-		return 1
-	}
-	return sidebarWidth - 1
-}
-
-func (m Model) compactModeLabel() string {
-	if m.Focus == focusChatList {
-		return "Compact: Chats view (Enter/Tab to open messages)"
-	}
-	return "Compact: Messages view (Esc/Tab to show chats)"
-}
-
-func (m Model) renderShortcutBar() string {
-	text := "↑/↓ Move  Enter Open chat  Esc Back  Ctrl+F Search  Ctrl+N New chat  Ctrl+, Settings  Ctrl+O Attach  R Reply  D Delete  ? Help"
-	if m.isCompactLayout() {
-		text = "Enter open • Esc chats • Ctrl+F search • ? help"
-	}
-	bar := lipgloss.NewStyle().
-		Background(TelegramDark.BgSecondary).
-		Foreground(TelegramDark.TextSecondary).
-		Padding(0, 1)
-	return bar.Width(m.Width).Render(text)
-}
-
-func (m Model) renderHelpOverlay(base string) string {
-	content := lipgloss.JoinVertical(lipgloss.Left,
-		"Keyboard Shortcuts",
-		"",
-		"Navigation",
-		"  ↑ / ↓      Move in current list",
-		"  Enter      Open selected chat",
-		"  Esc        Close help / return to chats",
-		"  Tab        Next focus panel",
-		"  Shift+Tab  Previous focus panel",
-		"",
-		"Actions",
-		"  Ctrl+N     Open new chat modal",
-		"  Ctrl+,     Open settings modal",
-		"  Ctrl+F     Search chats",
-		"  Ctrl+O     Insert attach token in input",
-		"  R          Reply to selected chat",
-		"  D          Delete (chat/message)",
-		"  ?          Toggle this help",
-		"  Ctrl+C     Quit",
-		"",
-		"Mouse",
-		"  Left click  Select chat / focus panel / click Send",
-		"  Wheel       Scroll messages when hovering message pane",
-	)
-
-	boxWidth := 56
-	if m.Width > 0 && m.Width < 62 {
-		boxWidth = m.Width - 4
-		if boxWidth < 28 {
-			boxWidth = 28
-		}
-	}
-
-	box := lipgloss.NewStyle().
-		Background(TelegramDark.BgPrimary).
-		Foreground(TelegramDark.TextPrimary).
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(TelegramDark.AccentBlue).
-		Padding(1, 2).
-		Width(boxWidth).
-		Render(content)
-
-	overlay := lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, box)
-	if base == "" {
-		return overlay
-	}
-	return overlay
 }
 
 func (m Model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -755,42 +384,13 @@ func (m Model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modalNewChat:
 		m.NewChatModal = m.NewChatModal.Update(msg)
 		if key == "enter" {
-			user := m.NewChatModal.SelectedUser()
-			if user != "" && user != "No matches" {
-				title := strings.TrimPrefix(user, "@")
-				if title == "" {
-					title = "new chat"
-				}
-				m.ChatList.Chats = append([]ChatItem{{
-					Title:       title,
-					Target:      user,
-					LastMessage: "",
-					LastTime:    "now",
-					Online:      true,
-				}}, m.ChatList.Chats...)
-				m.ChatList.SelectedIdx = 0
-				m.ActiveModal = modalNone
-				m.Focus = focusMessages
-				m.syncHeaderChat()
-				m.lastNotice = "Started chat with " + user
-				return m, m.loadMessagesCmd()
-			}
+			m.lastNotice = "New chat creation is not wired in TUI yet"
+			m.ActiveModal = modalNone
 		}
 	case modalSettings:
 		m.SettingsModal = m.SettingsModal.Update(msg)
-		m.lastNotice = "Theme " + onOff(m.SettingsModal.ThemeDark) + ", Notifications " + onOff(m.SettingsModal.Notifications)
+		m.lastNotice = fmt.Sprintf("Theme %s, Notifications %s", onOff(m.SettingsModal.ThemeDark), onOff(m.SettingsModal.Notifications))
 	}
 
 	return m, nil
-}
-
-func (m Model) renderModalOverlay(base string) string {
-	switch m.ActiveModal {
-	case modalNewChat:
-		return m.NewChatModal.View()
-	case modalSettings:
-		return m.SettingsModal.View()
-	default:
-		return base
-	}
 }

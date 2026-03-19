@@ -1,10 +1,6 @@
 package ui
 
-import (
-	"strings"
-
-	tea "github.com/charmbracelet/bubbletea"
-)
+import tea "github.com/charmbracelet/bubbletea"
 
 type layoutMetrics struct {
 	compact      bool
@@ -42,28 +38,22 @@ func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if msg.Action != tea.MouseActionPress {
-		return m, nil
-	}
-
 	if m.pointInMessagePanel(msg.X, msg.Y, layout) {
 		switch msg.Button {
-		case tea.MouseButtonWheelUp:
-			m.Messages.Scroll--
-			m.Messages.clampScroll()
-			return m, nil
-		case tea.MouseButtonWheelDown:
-			m.Messages.Scroll++
-			m.Messages.clampScroll()
+		case tea.MouseButtonWheelUp, tea.MouseButtonWheelDown:
+			m.Focus = focusMessages
+			m.Messages = m.Messages.Update(msg)
 			return m, nil
 		case tea.MouseButtonLeft:
-			m.Focus = focusMessages
-			m.lastNotice = "Focus: messages"
-			return m, nil
+			if msg.Action == tea.MouseActionPress {
+				m.Focus = focusMessages
+				m.lastNotice = "Focus: messages"
+				return m, nil
+			}
 		}
 	}
 
-	if msg.Button != tea.MouseButtonLeft {
+	if msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
 		return m, nil
 	}
 
@@ -71,9 +61,11 @@ func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		m.Focus = focusChatList
 		m.lastNotice = "Focus: chats"
 		idx := m.chatIndexAt(msg.Y, layout)
-		if idx >= 0 && idx < len(m.ChatList.Chats) {
+		filtered, _ := m.ChatList.filteredChats()
+		if idx >= 0 && idx < len(filtered) {
 			if m.ChatList.SelectedIdx != idx {
 				m.ChatList.SelectedIdx = idx
+				m.markSelectedChatRead()
 				return m, m.loadMessagesCmd()
 			}
 		}
@@ -83,27 +75,10 @@ func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	if m.pointInInputPanel(msg.Y, layout) {
 		m.Focus = focusInput
 		m.lastNotice = "Focus: input"
-		if m.isSendButtonClick(msg.X, msg.Y, layout) {
-			if m.queueInputSend() {
-				return m, m.consumeSentMessagesCmd()
-			}
-		}
 		return m, nil
 	}
 
 	return m, nil
-}
-
-func (m *Model) queueInputSend() bool {
-	text := strings.TrimSpace(m.Input.Input.Value())
-	if text == "" {
-		return false
-	}
-	m.Input.Sent = append(m.Input.Sent, text)
-	m.Input.Input.SetValue("")
-	m.Input.Typing = false
-	m.Input.TypingStep = 0
-	return true
 }
 
 func (m Model) layoutMetrics() layoutMetrics {
@@ -125,17 +100,6 @@ func (m Model) layoutMetrics() layoutMetrics {
 		inputY:       inputY,
 		inputHeight:  inputHeight,
 	}
-}
-
-func (m Model) inputBlockHeight() int {
-	h := 4 // padded input container + hints
-	if m.Input.ReplyTo != "" {
-		h++
-	}
-	if m.Input.Typing {
-		h++
-	}
-	return h
 }
 
 func (m Model) pointInChatPanel(x, y int, layout layoutMetrics) bool {
@@ -161,7 +125,7 @@ func (m Model) pointInInputPanel(y int, layout layoutMetrics) bool {
 func (m Model) chatIndexAt(y int, layout layoutMetrics) int {
 	relY := y - layout.bodyY
 	if layout.compact {
-		relY-- // compact mode label row
+		relY--
 	}
 	if relY < m.ChatList.searchBlockSize {
 		return -1
@@ -170,7 +134,7 @@ func (m Model) chatIndexAt(y int, layout layoutMetrics) int {
 	relY -= m.ChatList.searchBlockSize
 	idx := relY / m.ChatList.itemBlockSize
 	if relY%m.ChatList.itemBlockSize == m.ChatList.itemBlockSize-1 {
-		return -1 // separator row
+		return -1
 	}
 
 	filtered, _ := m.ChatList.filteredChats()
@@ -178,21 +142,6 @@ func (m Model) chatIndexAt(y int, layout layoutMetrics) int {
 		return -1
 	}
 	return idx
-}
-
-func (m Model) isSendButtonClick(x, y int, layout layoutMetrics) bool {
-	sendRow := layout.inputY
-	if m.Input.ReplyTo != "" {
-		sendRow++
-	}
-	if m.Input.Typing {
-		sendRow++
-	}
-	sendRow++ // middle line inside padded input container
-	if y != sendRow {
-		return false
-	}
-	return x >= m.Width-12
 }
 
 func (m Model) pointInActiveModal(x, y int) bool {

@@ -10,6 +10,7 @@ type BackendUser struct {
 
 // BackendMessage is a backend message mapped into UI-friendly fields.
 type BackendMessage struct {
+	ID       int64
 	Text     string
 	Time     string
 	Sender   string
@@ -35,4 +36,5 @@ type Backend interface {
 	SendMessage(ctx context.Context, target string, text string) error
 	GetMessages(ctx context.Context, target string, limit int) ([]BackendMessage, error)
 	GetDialogs(ctx context.Context, limit int) ([]BackendDialog, error)
+	SetActiveChat(target string, title string)
 }

@@ -6,6 +6,7 @@ func mapBackendMessages(in []BackendMessage, chatTitle string, chatTarget string
 	out := make([]Message, 0, len(in))
 	for _, msg := range in {
 		out = append(out, Message{
+			ID:       msg.ID,
 			Text:     msg.Text,
 			Time:     msg.Time,
 			Sender:   msg.Sender,

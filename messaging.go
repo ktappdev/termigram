@@ -9,6 +9,7 @@ import (
 
 	"github.com/gotd/td/telegram/message/peer"
 	"github.com/gotd/td/tg"
+	"github.com/ktappdev/termigram/ui"
 	"github.com/mattn/go-runewidth"
 	"golang.org/x/term"
 )
@@ -348,7 +349,28 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 	cli.markChatActivity(fromTarget, msg.Message, msgTime)
 	activeTarget, activeLabel := cli.currentChat()
 	incomingTarget := normalizeUsername(fromTarget)
-	mismatch := activeTarget != "" && normalizeUsername(activeTarget) != incomingTarget
+	mismatch := activeTarget == "" || normalizeUsername(activeTarget) != incomingTarget
+	if mismatch {
+		cli.incrementChatUnreadCount(fromTarget)
+	} else {
+		cli.clearChatUnreadCount(fromTarget)
+	}
+
+	if cli.sendTUIMessage(ui.IncomingMessageMsg{
+		Target:    fromTarget,
+		ChatTitle: fromName,
+		Message: ui.BackendMessage{
+			ID:       int64(msg.ID),
+			Text:     msg.Message,
+			Time:     msgTime.Format("15:04"),
+			Sender:   fromName,
+			Chat:     fromTarget,
+			Outgoing: false,
+			Read:     false,
+		},
+	}) {
+		return
+	}
 
 	printTranscriptMessage(false, incomingTranscriptHeader(fromName, fromTarget, mismatch), msg.Message, incomingTranscriptMeta(msgTime.Format("15:04:05")))
 	if mismatch {

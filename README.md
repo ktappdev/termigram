@@ -26,21 +26,23 @@ On first run:
 
 Your session is saved automatically to `~/.termigram/session.json` by default.
 
-Send your first message:
+Default interactive mode now opens the Bubble Tea chat UI. Pick a chat from the sidebar, press `Enter`, and type in the composer at the bottom.
 
-```text
-\msg @username Hello!
-```
+If you prefer the older slash-command REPL during rollout, run:
 
-Or open the interactive chat picker:
-
-```text
-\chats
+```bash
+./termigram --ui legacy
 ```
 
 ## Everyday usage
 
-### Interactive commands
+### Interactive UI modes
+
+- `./termigram` uses the Bubble Tea TUI by default for TTY sessions
+- `./termigram --ui tui` forces the Bubble Tea TUI
+- `./termigram --ui legacy` forces the older slash-command REPL
+
+#### Legacy interactive commands (`--ui legacy`)
 
 - `\me`
 - `\contacts`
@@ -108,7 +110,9 @@ Before one-shot commands work, run interactive once and complete phone login:
 
 ### Terminal UI notes
 
-The repo also contains a Bubble Tea-based UI implementation and related docs/components.
+TTY interactive mode now uses the Bubble Tea-managed chat UI by default so message composition is owned by the app and transcript bubbles reflow cleanly on resize. Use `--ui=legacy` if you need the older REPL during rollout.
+
+For implementation notes on resize handling and layout tradeoffs, see `/Users/kentaylor/developer/telegram-cli/termigram/docs/bubbletea-resize-research.md`.
 
 #### Features
 
@@ -130,10 +134,11 @@ The repo also contains a Bubble Tea-based UI implementation and related docs/com
 | `Enter` | Open selected chat / Send message |
 | `Esc` | Go back to chat list / Cancel reply |
 | `Ctrl+C` | Quit application |
-| `Ctrl+N` | Start new conversation |
-| `Ctrl+F` | Focus search bar |
-| `Ctrl+Enter` | New line in message |
-| `/` | Focus message input |
+| `Tab` | Cycle focus between chats, transcript, and composer |
+| `Ctrl+F` | Focus chat search |
+| `Ctrl+O` | Insert attach token in the composer |
+| `R` | Start a reply to the selected chat |
+| `D` | Delete the latest message/chat in the active panel |
 | `?` | Show help |
 
 #### Responsive layout
@@ -148,6 +153,7 @@ The repo also contains a Bubble Tea-based UI implementation and related docs/com
 ```bash
 ./termigram --help
 ./termigram --version
+./termigram --ui legacy
 ./termigram send --help
 ./termigram get --help
 ./termigram contacts --help

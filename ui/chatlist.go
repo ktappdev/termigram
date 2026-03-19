@@ -40,11 +40,7 @@ type ChatListModel struct {
 // NewChatList creates a minimal sidebar model with theme-aligned styles.
 func NewChatList() ChatListModel {
 	return ChatListModel{
-		Chats: []ChatItem{
-			{Title: "Alice", Target: "@alice", LastMessage: "Hey, are you free?", LastTime: "10:42", Online: true, UnreadCount: 2},
-			{Title: "Bob", Target: "@bob", LastMessage: "Meeting moved to 3pm", LastTime: "09:10", Online: false, UnreadCount: 0},
-			{Title: "Team Group", Target: "@teamgroup", LastMessage: "Release checklist updated", LastTime: "Yesterday", Online: true, UnreadCount: 7},
-		},
+		Chats:      []ChatItem{},
 		HoveredIdx: -1,
 		BaseStyle: lipgloss.NewStyle().
 			Background(TelegramDark.BgSecondary).
@@ -156,19 +152,16 @@ func (m ChatListModel) renderSearch() string {
 		searchStyle = searchStyle.Foreground(TelegramDark.TextPrimary)
 	}
 
-	return searchStyle.Width(m.Width).Render(prefix + query)
+	return searchStyle.Width(widthWithinStyle(m.Width, searchStyle)).Render(prefix + query)
 }
 
 func (m ChatListModel) renderSeparator() string {
-	if m.Width <= 2 {
+	width := widthWithinStyle(m.Width, m.SeparatorStyle)
+	if width <= 0 {
 		return ""
 	}
-	lineWidth := m.Width - 2
-	if lineWidth < 1 {
-		lineWidth = 1
-	}
-	line := strings.Repeat("─", lineWidth)
-	return m.SeparatorStyle.Width(m.Width).Render(line)
+	line := strings.Repeat("─", width)
+	return m.SeparatorStyle.Width(width).Render(line)
 }
 
 func (m ChatListModel) filteredChats() ([]ChatItem, []int) {
@@ -200,6 +193,10 @@ func (m ChatListModel) renderItem(chat ChatItem, selected bool, hovered bool) st
 	} else if hovered {
 		style = m.HoverStyle
 	}
+	width := widthWithinStyle(m.Width, style)
+	if width < 1 {
+		width = 1
+	}
 
 	statusDot := lipgloss.NewStyle().Foreground(TelegramDark.TextMuted).Render("○")
 	if chat.Online {
@@ -209,8 +206,8 @@ func (m ChatListModel) renderItem(chat ChatItem, selected bool, hovered bool) st
 	header := fmt.Sprintf("%s %s", statusDot, chat.Title)
 	meta := lipgloss.NewStyle().Foreground(TelegramDark.TextSecondary).Render(chat.LastTime)
 	line1 := header
-	if m.Width > 0 {
-		gap := m.Width - 6 - lipgloss.Width(header) - lipgloss.Width(meta)
+	if width > 0 {
+		gap := width - 4 - lipgloss.Width(header) - lipgloss.Width(meta)
 		if gap > 1 {
 			line1 = header + strings.Repeat(" ", gap) + meta
 		}
@@ -226,5 +223,5 @@ func (m ChatListModel) renderItem(chat ChatItem, selected bool, hovered bool) st
 		preview = fmt.Sprintf("%s %s", preview, badge)
 	}
 
-	return style.Width(m.Width).Render(lipgloss.JoinVertical(lipgloss.Left, line1, preview))
+	return style.Width(width).Render(lipgloss.JoinVertical(lipgloss.Left, line1, preview))
 }

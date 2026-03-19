@@ -83,6 +83,27 @@ func (cli *TelegramCLI) setChatUnreadCount(target string, unreadCount int) {
 	cli.chatUnreadCount[normalized] = unreadCount
 }
 
+func (cli *TelegramCLI) clearChatUnreadCount(target string) {
+	normalized := normalizeUsername(target)
+	if normalized == "" {
+		return
+	}
+	cli.mu.Lock()
+	defer cli.mu.Unlock()
+	cli.chatUnreadCount[normalized] = 0
+}
+
+func (cli *TelegramCLI) incrementChatUnreadCount(target string) int {
+	normalized := normalizeUsername(target)
+	if normalized == "" {
+		return 0
+	}
+	cli.mu.Lock()
+	defer cli.mu.Unlock()
+	cli.chatUnreadCount[normalized]++
+	return cli.chatUnreadCount[normalized]
+}
+
 func (cli *TelegramCLI) listCachedChats(limit int) []CachedChat {
 	cli.mu.RLock()
 	defer cli.mu.RUnlock()

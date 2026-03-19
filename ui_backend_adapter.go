@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/ktappdev/termigram/ui"
@@ -46,11 +47,12 @@ func (a *uiBackendAdapter) GetMessages(ctx context.Context, target string, limit
 	out := make([]ui.BackendMessage, 0, len(msgs))
 	for _, msg := range msgs {
 		outgoing := msg.Outgoing || (a.selfID != 0 && msg.FromID == a.selfID)
-		sender := msg.FromName
+		sender := strings.TrimSpace(msg.FromName)
 		if outgoing {
 			sender = "You"
 		}
 		out = append(out, ui.BackendMessage{
+			ID:       msg.ID,
 			Text:     msg.Message,
 			Time:     time.Unix(msg.Date, 0).Format("15:04"),
 			Sender:   sender,
@@ -60,7 +62,6 @@ func (a *uiBackendAdapter) GetMessages(ctx context.Context, target string, limit
 		})
 	}
 
-	// Keep chronological feel in UI for this stub.
 	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
 		out[i], out[j] = out[j], out[i]
 	}
@@ -89,4 +90,12 @@ func (a *uiBackendAdapter) GetDialogs(ctx context.Context, limit int) ([]ui.Back
 		})
 	}
 	return out, nil
+}
+
+func (a *uiBackendAdapter) SetActiveChat(target string, title string) {
+	if a.backend == nil || a.backend.cli == nil {
+		return
+	}
+	a.backend.cli.setCurrentChat(target, title)
+	a.backend.cli.clearChatUnreadCount(target)
 }

@@ -75,22 +75,23 @@ func (h HeaderModel) View() string {
 }
 
 func (h HeaderModel) renderHomeHeader(rightFull string, rightCompact string) string {
+	width := h.contentWidth()
 	title := lipgloss.NewStyle().
 		Foreground(TelegramDark.AccentBlue).
 		Bold(true).
 		Render(homeTitle)
 	subtitleStyle := lipgloss.NewStyle().Foreground(TelegramDark.TextSecondary)
 
-	if h.Width > 0 && lipgloss.Width(rightCompact) >= h.Width {
-		return h.Style.Width(h.Width).Render(lipgloss.NewStyle().MaxWidth(h.Width).Render(rightCompact))
+	if width > 0 && lipgloss.Width(rightCompact) >= width {
+		return h.Style.Width(width).Render(lipgloss.NewStyle().MaxWidth(width).Render(rightCompact))
 	}
 
 	right := rightFull
-	if h.Width > 0 && lipgloss.Width(rightFull) > h.Width/2 {
+	if width > 0 && lipgloss.Width(rightFull) > width/2 {
 		right = rightCompact
 	}
 
-	leftAvailable := h.Width - lipgloss.Width(right)
+	leftAvailable := width - lipgloss.Width(right)
 	if leftAvailable <= 0 {
 		leftAvailable = lipgloss.Width(title)
 	}
@@ -100,18 +101,19 @@ func (h HeaderModel) renderHomeHeader(rightFull string, rightCompact string) str
 }
 
 func (h HeaderModel) renderChatHeader(rightFull string, rightCompact string) string {
+	width := h.contentWidth()
 	left := fmt.Sprintf(" %s  💬 %s", h.Title, h.CurrentChat)
-	if h.Width > 0 {
-		if lipgloss.Width(rightCompact) >= h.Width {
-			return h.Style.Width(h.Width).Render(lipgloss.NewStyle().MaxWidth(h.Width).Render(rightCompact))
+	if width > 0 {
+		if lipgloss.Width(rightCompact) >= width {
+			return h.Style.Width(width).Render(lipgloss.NewStyle().MaxWidth(width).Render(rightCompact))
 		}
 
 		right := rightFull
-		if lipgloss.Width(right) > h.Width/2 {
+		if lipgloss.Width(right) > width/2 {
 			right = rightCompact
 		}
 
-		maxLeft := h.Width - lipgloss.Width(right) - 1
+		maxLeft := width - lipgloss.Width(right) - 1
 		if maxLeft < 1 {
 			maxLeft = 1
 		}
@@ -119,7 +121,7 @@ func (h HeaderModel) renderChatHeader(rightFull string, rightCompact string) str
 		return h.renderAlignedLine(left, right)
 	}
 
-	return h.Style.Width(h.Width).Render(left + rightFull)
+	return h.Style.Width(width).Render(left + rightFull)
 }
 
 func (h HeaderModel) homeBrandBlock(title string, subtitleStyle lipgloss.Style, available int) string {
@@ -143,16 +145,28 @@ func (h HeaderModel) homeBrandBlock(title string, subtitleStyle lipgloss.Style, 
 }
 
 func (h HeaderModel) renderAlignedLine(left string, right string) string {
+	width := h.contentWidth()
 	content := left + right
-	if h.Width > 0 {
-		gap := h.Width - lipgloss.Width(left) - lipgloss.Width(right)
+	if width > 0 {
+		gap := width - lipgloss.Width(left) - lipgloss.Width(right)
 		if gap > 0 {
 			content = left + strings.Repeat(" ", gap) + right
-		} else if lipgloss.Width(left) > h.Width-lipgloss.Width(right) {
-			content = truncateWithEllipsis(left, h.Width-lipgloss.Width(right)-1) + " " + right
+		} else if lipgloss.Width(left) > width-lipgloss.Width(right) {
+			content = truncateWithEllipsis(left, width-lipgloss.Width(right)-1) + " " + right
 		}
 	}
-	return h.Style.Width(h.Width).Render(content)
+	return h.Style.Width(width).Render(content)
+}
+
+func (h HeaderModel) contentWidth() int {
+	if h.Width <= 0 {
+		return 0
+	}
+	width := h.Width - h.Style.GetHorizontalFrameSize()
+	if width < 1 {
+		return 1
+	}
+	return width
 }
 
 func truncateWithEllipsis(text string, maxWidth int) string {
