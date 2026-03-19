@@ -20,12 +20,25 @@ type transcriptTheme struct {
 	meta   func(string) string
 }
 
-func outgoingTranscriptHeader(displayName string, targetLabel string) string {
-	return fmt.Sprintf("You → %s (%s)", displayName, targetLabel)
+func outgoingTranscriptHeader(displayName string, targetLabel string, includeContext bool) string {
+	if includeContext && strings.TrimSpace(displayName) != "" && strings.TrimSpace(targetLabel) != "" {
+		return fmt.Sprintf("You • %s", targetLabel)
+	}
+	return "You"
 }
 
-func incomingTranscriptHeader(fromName string, fromTarget string) string {
-	return fmt.Sprintf("%s (%s)", fromName, fromTarget)
+func incomingTranscriptHeader(fromName string, fromTarget string, includeContext bool) string {
+	name := strings.TrimSpace(fromName)
+	if name == "" || name == "Unknown sender" {
+		name = strings.TrimSpace(fromTarget)
+	}
+	if name == "" {
+		name = "Unknown"
+	}
+	if includeContext && strings.TrimSpace(fromTarget) != "" && normalizeLabelValue(name) != normalizeLabelValue(fromTarget) {
+		return fmt.Sprintf("%s • %s", name, fromTarget)
+	}
+	return name
 }
 
 func outgoingTranscriptMeta(ts string) string {
@@ -64,12 +77,10 @@ func transcriptBubbleWidth(totalWidth int) int {
 
 func transcriptPadding(totalWidth int) int {
 	switch {
-	case totalWidth < 28:
+	case totalWidth < 32:
 		return 0
-	case totalWidth < 40:
-		return 1
 	default:
-		return 2
+		return 1
 	}
 }
 
@@ -77,7 +88,7 @@ func transcriptThemeFor(outgoing bool) transcriptTheme {
 	if outgoing {
 		fillStyle := ansiBgSoftBlue + ansiWhite
 		return transcriptTheme{
-			border: func(text string) string { return colorize(ansiBold+ansiBlue, text) },
+			border: func(text string) string { return colorize(ansiDim+ansiBlue, text) },
 			fill:   func(text string) string { return colorize(fillStyle, text) },
 			title:  func(text string) string { return colorize(fillStyle+ansiBold, text) },
 			meta:   func(text string) string { return colorize(fillStyle+ansiDim, text) },
@@ -86,7 +97,7 @@ func transcriptThemeFor(outgoing bool) transcriptTheme {
 
 	fillStyle := ansiBgSoftGreen + ansiWhite
 	return transcriptTheme{
-		border: func(text string) string { return colorize(ansiBold+ansiGreen, text) },
+		border: func(text string) string { return colorize(ansiDim+ansiGreen, text) },
 		fill:   func(text string) string { return colorize(fillStyle, text) },
 		title:  func(text string) string { return colorize(fillStyle+ansiBold, text) },
 		meta:   func(text string) string { return colorize(fillStyle+ansiDim, text) },
@@ -103,14 +114,19 @@ func renderTranscriptBubble(outgoing bool, header string, body string, meta stri
 	}
 
 	theme := transcriptThemeFor(outgoing)
-	contentLines := make([]string, 0)
-	contentLines = append(contentLines, wrapTranscriptText(header, innerWidth)...)
-	contentLines = append(contentLines, wrapTranscriptText(body, innerWidth)...)
-	contentLines = append(contentLines, wrapTranscriptText(meta, innerWidth)...)
+	headerLines := wrapTranscriptText(header, innerWidth)
+	bodyLines := wrapTranscriptText(body, innerWidth)
+	metaLines := wrapTranscriptText(meta, innerWidth)
+
+	contentLines := make([]string, 0, len(headerLines)+len(bodyLines)+len(metaLines))
+	contentLines = append(contentLines, headerLines...)
+	contentLines = append(contentLines, bodyLines...)
+	contentLines = append(contentLines, metaLines...)
 	if len(contentLines) == 0 {
 		contentLines = []string{""}
 	}
 
+	metaStart := len(headerLines) + len(bodyLines)
 	blockWidth := innerWidth + (padding * 2) + 2
 	indent := 0
 	if outgoing && totalWidth > blockWidth {
@@ -120,13 +136,15 @@ func renderTranscriptBubble(outgoing bool, header string, body string, meta stri
 
 	rendered := make([]string, 0, len(contentLines))
 	for i, line := range contentLines {
-		styledLine := theme.fill(transcriptInnerLine(line, innerWidth, padding))
+		styledLine := theme.fill(transcriptInnerLine(line, innerWidth, padding, false))
+		if i >= metaStart {
+			styledLine = theme.meta(transcriptInnerLine(line, innerWidth, padding, true))
+		}
 		switch {
 		case i == 0:
-			styledLine = theme.title(transcriptInnerLine(line, innerWidth, padding))
+			styledLine = theme.title(transcriptInnerLine(line, innerWidth, padding, false))
 			rendered = append(rendered, prefix+theme.border("╭")+styledLine+theme.border("╮"))
 		case i == len(contentLines)-1:
-			styledLine = theme.meta(transcriptInnerLine(line, innerWidth, padding))
 			rendered = append(rendered, prefix+theme.border("╰")+styledLine+theme.border("╯"))
 		default:
 			rendered = append(rendered, prefix+theme.border("│")+styledLine+theme.border("│"))
@@ -136,8 +154,8 @@ func renderTranscriptBubble(outgoing bool, header string, body string, meta stri
 	return strings.Join(rendered, "\n")
 }
 
-func transcriptInnerLine(line string, width int, padding int) string {
-	inner := visiblePadRight(line, width)
+func transcriptInnerLine(line string, width int, padding int, alignRight bool) string {
+	inner := visiblePad(line, width, alignRight)
 	return strings.Repeat(" ", padding) + inner + strings.Repeat(" ", padding)
 }
 
@@ -189,10 +207,13 @@ func splitVisibleWidth(text string, width int) (string, string) {
 	return text, ""
 }
 
-func visiblePadRight(text string, width int) string {
+func visiblePad(text string, width int, alignRight bool) string {
 	pad := width - runewidth.StringWidth(text)
 	if pad <= 0 {
 		return text
+	}
+	if alignRight {
+		return strings.Repeat(" ", pad) + text
 	}
 	return text + strings.Repeat(" ", pad)
 }
@@ -204,8 +225,14 @@ func maxInt(a int, b int) int {
 	return b
 }
 
+func normalizeLabelValue(value string) string {
+	value = strings.TrimSpace(strings.ToLower(value))
+	value = strings.TrimPrefix(value, "@")
+	return value
+}
+
 func printTranscriptMessage(outgoing bool, header string, body string, meta string) {
-	fmt.Printf("\n%s\n", renderTranscriptBubble(outgoing, header, body, meta))
+	fmt.Printf("%s\n", renderTranscriptBubble(outgoing, header, body, meta))
 }
 
 func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text string) {
@@ -258,7 +285,7 @@ func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text str
 	cli.setCurrentChat(targetLabel, displayName)
 	cli.markChatActivity(targetLabel, text, now)
 
-	printTranscriptMessage(true, outgoingTranscriptHeader(displayName, targetLabel), text, outgoingTranscriptMeta(now.Format("15:04:05")))
+	printTranscriptMessage(true, outgoingTranscriptHeader(displayName, targetLabel, false), text, outgoingTranscriptMeta(now.Format("15:04:05")))
 }
 
 func (cli *TelegramCLI) shouldPrintIncoming(msg *tg.Message, fromTarget string) bool {
@@ -323,7 +350,7 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 	incomingTarget := normalizeUsername(fromTarget)
 	mismatch := activeTarget != "" && normalizeUsername(activeTarget) != incomingTarget
 
-	printTranscriptMessage(false, incomingTranscriptHeader(fromName, fromTarget), msg.Message, incomingTranscriptMeta(msgTime.Format("15:04:05")))
+	printTranscriptMessage(false, incomingTranscriptHeader(fromName, fromTarget, mismatch), msg.Message, incomingTranscriptMeta(msgTime.Format("15:04:05")))
 	if mismatch {
 		focusLabel := activeLabel
 		if strings.TrimSpace(focusLabel) == "" {
