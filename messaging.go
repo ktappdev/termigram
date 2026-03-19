@@ -3,38 +3,209 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/gotd/td/telegram/message/peer"
 	"github.com/gotd/td/tg"
+	"github.com/mattn/go-runewidth"
+	"golang.org/x/term"
 )
 
-func formatTranscriptBlock(header string, body string, accent func(string) string) string {
-	lines := strings.Split(body, "\n")
-	rendered := make([]string, 0, len(lines)+1)
-	rendered = append(rendered, header)
-	for _, line := range lines {
-		content := line
-		if strings.TrimSpace(content) == "" {
-			content = dim("(blank line)")
-		}
-		rendered = append(rendered, fmt.Sprintf("  %s %s", accent("│"), content))
+type transcriptTheme struct {
+	border func(string) string
+	fill   func(string) string
+	title  func(string) string
+	meta   func(string) string
+}
+
+func outgoingTranscriptHeader(displayName string, targetLabel string) string {
+	return fmt.Sprintf("You → %s (%s)", displayName, targetLabel)
+}
+
+func incomingTranscriptHeader(fromName string, fromTarget string) string {
+	return fmt.Sprintf("%s (%s)", fromName, fromTarget)
+}
+
+func outgoingTranscriptMeta(ts string) string {
+	return ts + "  ✓"
+}
+
+func incomingTranscriptMeta(ts string) string {
+	return ts
+}
+
+func transcriptWidth() int {
+	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || width <= 0 {
+		return 80
 	}
+	return width
+}
+
+func transcriptBubbleWidth(totalWidth int) int {
+	if totalWidth <= 0 {
+		return 60
+	}
+	available := totalWidth - 2
+	if available < 16 {
+		return maxInt(totalWidth, 1)
+	}
+	bubbleWidth := (available * 3) / 4
+	if bubbleWidth < 18 {
+		bubbleWidth = available
+	}
+	if bubbleWidth > available {
+		bubbleWidth = available
+	}
+	return bubbleWidth
+}
+
+func transcriptPadding(totalWidth int) int {
+	switch {
+	case totalWidth < 28:
+		return 0
+	case totalWidth < 40:
+		return 1
+	default:
+		return 2
+	}
+}
+
+func transcriptThemeFor(outgoing bool) transcriptTheme {
+	if outgoing {
+		fillStyle := ansiBgSoftBlue + ansiWhite
+		return transcriptTheme{
+			border: func(text string) string { return colorize(ansiBold+ansiBlue, text) },
+			fill:   func(text string) string { return colorize(fillStyle, text) },
+			title:  func(text string) string { return colorize(fillStyle+ansiBold, text) },
+			meta:   func(text string) string { return colorize(fillStyle+ansiDim, text) },
+		}
+	}
+
+	fillStyle := ansiBgSoftGreen + ansiWhite
+	return transcriptTheme{
+		border: func(text string) string { return colorize(ansiBold+ansiGreen, text) },
+		fill:   func(text string) string { return colorize(fillStyle, text) },
+		title:  func(text string) string { return colorize(fillStyle+ansiBold, text) },
+		meta:   func(text string) string { return colorize(fillStyle+ansiDim, text) },
+	}
+}
+
+func renderTranscriptBubble(outgoing bool, header string, body string, meta string) string {
+	totalWidth := transcriptWidth()
+	bubbleWidth := transcriptBubbleWidth(totalWidth)
+	padding := transcriptPadding(totalWidth)
+	innerWidth := bubbleWidth - 2 - (padding * 2)
+	if innerWidth < 1 {
+		innerWidth = 1
+	}
+
+	theme := transcriptThemeFor(outgoing)
+	contentLines := make([]string, 0)
+	contentLines = append(contentLines, wrapTranscriptText(header, innerWidth)...)
+	contentLines = append(contentLines, wrapTranscriptText(body, innerWidth)...)
+	contentLines = append(contentLines, wrapTranscriptText(meta, innerWidth)...)
+	if len(contentLines) == 0 {
+		contentLines = []string{""}
+	}
+
+	blockWidth := innerWidth + (padding * 2) + 2
+	indent := 0
+	if outgoing && totalWidth > blockWidth {
+		indent = totalWidth - blockWidth
+	}
+	prefix := strings.Repeat(" ", maxInt(indent, 0))
+
+	rendered := make([]string, 0, len(contentLines))
+	for i, line := range contentLines {
+		styledLine := theme.fill(transcriptInnerLine(line, innerWidth, padding))
+		switch {
+		case i == 0:
+			styledLine = theme.title(transcriptInnerLine(line, innerWidth, padding))
+			rendered = append(rendered, prefix+theme.border("╭")+styledLine+theme.border("╮"))
+		case i == len(contentLines)-1:
+			styledLine = theme.meta(transcriptInnerLine(line, innerWidth, padding))
+			rendered = append(rendered, prefix+theme.border("╰")+styledLine+theme.border("╯"))
+		default:
+			rendered = append(rendered, prefix+theme.border("│")+styledLine+theme.border("│"))
+		}
+	}
+
 	return strings.Join(rendered, "\n")
 }
 
-func outgoingTranscriptHeader(ts string, displayName string, targetLabel string) string {
-	return fmt.Sprintf("%s %s %s %s", dim("["+ts+"]"), colorize(ansiBold+ansiGreen, "YOU →"), bold(displayName), dim("("+targetLabel+")"))
+func transcriptInnerLine(line string, width int, padding int) string {
+	inner := visiblePadRight(line, width)
+	return strings.Repeat(" ", padding) + inner + strings.Repeat(" ", padding)
 }
 
-func incomingTranscriptHeader(ts string, fromName string, fromTarget string) string {
-	return fmt.Sprintf("%s %s %s %s", dim("["+ts+"]"), colorize(ansiBold+ansiBlue, "FROM ←"), bold(cyan(fromName)), dim("("+fromTarget+")"))
+func wrapTranscriptText(text string, width int) []string {
+	if width < 1 {
+		width = 1
+	}
+
+	lines := strings.Split(text, "\n")
+	wrapped := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if line == "" {
+			wrapped = append(wrapped, "")
+			continue
+		}
+		remaining := line
+		for runewidth.StringWidth(remaining) > width {
+			chunk, rest := splitVisibleWidth(remaining, width)
+			wrapped = append(wrapped, chunk)
+			remaining = rest
+		}
+		wrapped = append(wrapped, remaining)
+	}
+	return wrapped
 }
 
-func printTranscriptMessage(header string, body string, accent func(string) string) {
-	divider := dim(strings.Repeat("─", 52))
-	fmt.Printf("%s\n%s\n", divider, formatTranscriptBlock(header, body, accent))
+func splitVisibleWidth(text string, width int) (string, string) {
+	if width < 1 {
+		return "", text
+	}
+
+	visible := 0
+	lastByte := 0
+	for idx, r := range text {
+		runeWidth := runewidth.RuneWidth(r)
+		if runeWidth == 0 {
+			runeWidth = 1
+		}
+		if visible+runeWidth > width {
+			if lastByte == 0 {
+				next := idx + len(string(r))
+				return text[:next], text[next:]
+			}
+			return text[:lastByte], text[lastByte:]
+		}
+		visible += runeWidth
+		lastByte = idx + len(string(r))
+	}
+	return text, ""
+}
+
+func visiblePadRight(text string, width int) string {
+	pad := width - runewidth.StringWidth(text)
+	if pad <= 0 {
+		return text
+	}
+	return text + strings.Repeat(" ", pad)
+}
+
+func maxInt(a int, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func printTranscriptMessage(outgoing bool, header string, body string, meta string) {
+	fmt.Printf("\n%s\n", renderTranscriptBubble(outgoing, header, body, meta))
 }
 
 func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text string) {
@@ -87,7 +258,7 @@ func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text str
 	cli.setCurrentChat(targetLabel, displayName)
 	cli.markChatActivity(targetLabel, text, now)
 
-	printTranscriptMessage(outgoingTranscriptHeader(now.Format("15:04:05"), displayName, targetLabel), text, green)
+	printTranscriptMessage(true, outgoingTranscriptHeader(displayName, targetLabel), text, outgoingTranscriptMeta(now.Format("15:04:05")))
 }
 
 func (cli *TelegramCLI) shouldPrintIncoming(msg *tg.Message, fromTarget string) bool {
@@ -152,7 +323,7 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 	incomingTarget := normalizeUsername(fromTarget)
 	mismatch := activeTarget != "" && normalizeUsername(activeTarget) != incomingTarget
 
-	printTranscriptMessage(incomingTranscriptHeader(msgTime.Format("15:04:05"), fromName, fromTarget), msg.Message, cyan)
+	printTranscriptMessage(false, incomingTranscriptHeader(fromName, fromTarget), msg.Message, incomingTranscriptMeta(msgTime.Format("15:04:05")))
 	if mismatch {
 		focusLabel := activeLabel
 		if strings.TrimSpace(focusLabel) == "" {

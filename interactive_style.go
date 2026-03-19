@@ -6,14 +6,17 @@ import (
 )
 
 const (
-	ansiReset  = "\033[0m"
-	ansiBold   = "\033[1m"
-	ansiDim    = "\033[2m"
-	ansiRed    = "\033[31m"
-	ansiGreen  = "\033[32m"
-	ansiYellow = "\033[33m"
-	ansiBlue   = "\033[34m"
-	ansiCyan   = "\033[36m"
+	ansiReset       = "\033[0m"
+	ansiBold        = "\033[1m"
+	ansiDim         = "\033[2m"
+	ansiRed         = "\033[31m"
+	ansiGreen       = "\033[32m"
+	ansiYellow      = "\033[33m"
+	ansiBlue        = "\033[34m"
+	ansiCyan        = "\033[36m"
+	ansiWhite       = "\033[37m"
+	ansiBgSoftBlue  = "\033[48;2;31;63;91m"
+	ansiBgSoftGreen = "\033[48;2;29;58;42m"
 )
 
 var ansiEnabled = os.Getenv("NO_COLOR") == ""
