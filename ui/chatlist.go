@@ -28,10 +28,13 @@ type ChatListModel struct {
 	Width       int
 	Height      int
 
-	BaseStyle     lipgloss.Style
-	ItemStyle     lipgloss.Style
-	HoverStyle    lipgloss.Style
-	SelectedStyle lipgloss.Style
+	BaseStyle       lipgloss.Style
+	ItemStyle       lipgloss.Style
+	HoverStyle      lipgloss.Style
+	SelectedStyle   lipgloss.Style
+	SeparatorStyle  lipgloss.Style
+	searchBlockSize int
+	itemBlockSize   int
 }
 
 // NewChatList creates a minimal sidebar model with theme-aligned styles.
@@ -49,15 +52,20 @@ func NewChatList() ChatListModel {
 		ItemStyle: lipgloss.NewStyle().
 			Background(TelegramDark.BgSecondary).
 			Foreground(TelegramDark.TextPrimary).
-			Padding(0, 1),
+			Padding(spaceSm, spaceSm),
 		HoverStyle: lipgloss.NewStyle().
 			Background(TelegramDark.BgHover).
 			Foreground(TelegramDark.TextPrimary).
-			Padding(0, 1),
+			Padding(spaceSm, spaceSm),
 		SelectedStyle: lipgloss.NewStyle().
 			Background(TelegramDark.BgSelected).
 			Foreground(TelegramDark.TextPrimary).
-			Padding(0, 1),
+			Padding(spaceSm, spaceSm),
+		SeparatorStyle: lipgloss.NewStyle().
+			Foreground(TelegramDark.BgHover).
+			Padding(spaceXs, spaceSm),
+		searchBlockSize: 2,
+		itemBlockSize:   5,
 	}
 }
 
@@ -114,10 +122,13 @@ func (m ChatListModel) View() string {
 	chats, _ := m.filteredChats()
 	for i, chat := range chats {
 		rows = append(rows, m.renderItem(chat, i == m.SelectedIdx, i == m.HoveredIdx))
+		if i < len(chats)-1 {
+			rows = append(rows, m.renderSeparator())
+		}
 	}
 
 	if len(chats) == 0 {
-		empty := lipgloss.NewStyle().Foreground(TelegramDark.TextMuted).Padding(0, 1).Render("No chats found")
+		empty := lipgloss.NewStyle().Foreground(TelegramDark.TextMuted).Padding(spaceXs, spaceSm).Render("No chats found")
 		rows = append(rows, empty)
 	}
 
@@ -138,13 +149,26 @@ func (m ChatListModel) renderSearch() string {
 	searchStyle := lipgloss.NewStyle().
 		Background(TelegramDark.BgPrimary).
 		Foreground(TelegramDark.TextMuted).
-		Padding(0, 1)
+		Padding(spaceXs, spaceSm).
+		MarginBottom(spaceSm)
 
 	if m.SearchQuery != "" {
 		searchStyle = searchStyle.Foreground(TelegramDark.TextPrimary)
 	}
 
 	return searchStyle.Width(m.Width).Render(prefix + query)
+}
+
+func (m ChatListModel) renderSeparator() string {
+	if m.Width <= 2 {
+		return ""
+	}
+	lineWidth := m.Width - 2
+	if lineWidth < 1 {
+		lineWidth = 1
+	}
+	line := strings.Repeat("─", lineWidth)
+	return m.SeparatorStyle.Width(m.Width).Render(line)
 }
 
 func (m ChatListModel) filteredChats() ([]ChatItem, []int) {
@@ -186,7 +210,7 @@ func (m ChatListModel) renderItem(chat ChatItem, selected bool, hovered bool) st
 	meta := lipgloss.NewStyle().Foreground(TelegramDark.TextSecondary).Render(chat.LastTime)
 	line1 := header
 	if m.Width > 0 {
-		gap := m.Width - 4 - lipgloss.Width(header) - lipgloss.Width(meta)
+		gap := m.Width - 6 - lipgloss.Width(header) - lipgloss.Width(meta)
 		if gap > 1 {
 			line1 = header + strings.Repeat(" ", gap) + meta
 		}
@@ -197,7 +221,7 @@ func (m ChatListModel) renderItem(chat ChatItem, selected bool, hovered bool) st
 		badge := lipgloss.NewStyle().
 			Background(TelegramDark.AccentBlue).
 			Foreground(TelegramDark.TextPrimary).
-			Padding(0, 1).
+			Padding(spaceXs, spaceSm).
 			Render(fmt.Sprintf("%d", chat.UnreadCount))
 		preview = fmt.Sprintf("%s %s", preview, badge)
 	}

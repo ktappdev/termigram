@@ -111,7 +111,7 @@ func (m Model) layoutMetrics() layoutMetrics {
 	sidebarWidth, messageWidth := m.computePaneWidths()
 	bodyHeight := m.bodyHeight()
 	inputHeight := m.inputBlockHeight()
-	inputY := 1 + bodyHeight + 1 + m.statusLineHeight()
+	inputY := m.headerBlockHeight() + bodyHeight + 1 + m.statusLineHeight()
 	if compact {
 		inputY++
 	}
@@ -120,7 +120,7 @@ func (m Model) layoutMetrics() layoutMetrics {
 		compact:      compact,
 		sidebarWidth: sidebarWidth,
 		messageWidth: messageWidth,
-		bodyY:        1,
+		bodyY:        m.headerBlockHeight(),
 		bodyHeight:   bodyHeight,
 		inputY:       inputY,
 		inputHeight:  inputHeight,
@@ -128,7 +128,7 @@ func (m Model) layoutMetrics() layoutMetrics {
 }
 
 func (m Model) inputBlockHeight() int {
-	h := 2 // input row + hints
+	h := 4 // padded input container + hints
 	if m.Input.ReplyTo != "" {
 		h++
 	}
@@ -163,10 +163,16 @@ func (m Model) chatIndexAt(y int, layout layoutMetrics) int {
 	if layout.compact {
 		relY-- // compact mode label row
 	}
-	if relY <= 0 { // search row
+	if relY < m.ChatList.searchBlockSize {
 		return -1
 	}
-	idx := (relY - 1) / 2
+
+	relY -= m.ChatList.searchBlockSize
+	idx := relY / m.ChatList.itemBlockSize
+	if relY%m.ChatList.itemBlockSize == m.ChatList.itemBlockSize-1 {
+		return -1 // separator row
+	}
+
 	filtered, _ := m.ChatList.filteredChats()
 	if idx < 0 || idx >= len(filtered) {
 		return -1
@@ -182,6 +188,7 @@ func (m Model) isSendButtonClick(x, y int, layout layoutMetrics) bool {
 	if m.Input.Typing {
 		sendRow++
 	}
+	sendRow++ // middle line inside padded input container
 	if y != sendRow {
 		return false
 	}

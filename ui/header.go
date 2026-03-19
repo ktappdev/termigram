@@ -39,7 +39,10 @@ func NewHeader() HeaderModel {
 		Style: lipgloss.NewStyle().
 			Background(TelegramDark.BgSecondary).
 			Foreground(TelegramDark.TextPrimary).
-			Padding(0, 1),
+			Padding(spaceXs, spaceSm).
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderBottom(true).
+			BorderForeground(TelegramDark.BgHover),
 	}
 }
 

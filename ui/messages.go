@@ -88,12 +88,15 @@ func (m MessageViewModel) View() string {
 		return m.BaseStyle.Width(m.Width).Height(m.Height).Render("")
 	}
 
-	rows := make([]string, 0, end-start+1)
+	rows := make([]string, 0, (end-start)*2)
 	if chat := m.chatContextLine(); chat != "" {
-		rows = append(rows, chat)
+		rows = append(rows, chat, "")
 	}
-	for _, msg := range m.Messages[start:end] {
+	for i, msg := range m.Messages[start:end] {
 		rows = append(rows, m.renderMessage(msg))
+		if i < end-start-1 {
+			rows = append(rows, "")
+		}
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, rows...)
@@ -135,11 +138,11 @@ func (m MessageViewModel) bubbleStyle(outgoing bool) lipgloss.Style {
 
 	switch {
 	case m.Width < 22:
-		return style.Padding(0, 0)
+		return style.Padding(spaceSm, spaceMd)
 	case m.Width < 30:
-		return style.Border(lipgloss.NormalBorder()).Padding(0, 0)
+		return style.Border(lipgloss.NormalBorder()).Padding(spaceSm, spaceMd)
 	default:
-		return style.Border(lipgloss.RoundedBorder()).Padding(0, 1)
+		return style.Border(lipgloss.RoundedBorder()).Padding(spaceSm, spaceMd)
 	}
 }
 
@@ -263,8 +266,8 @@ func (m MessageViewModel) maxVisible() int {
 	if m.Height <= 0 {
 		return len(m.Messages)
 	}
-	// Rough estimate: wrapped bubble messages tend to use ~4 lines.
-	visible := m.Height / 4
+	// Rough estimate: padded bubble messages plus spacing tend to use ~6 lines.
+	visible := m.Height / 6
 	if visible < 1 {
 		visible = 1
 	}

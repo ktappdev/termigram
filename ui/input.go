@@ -37,7 +37,7 @@ func NewInputArea() InputAreaModel {
 		ContainerStyle: lipgloss.NewStyle().
 			Background(TelegramDark.BgSecondary).
 			Foreground(TelegramDark.TextPrimary).
-			Padding(0, 1),
+			Padding(spaceSm, spaceMd),
 		ReplyStyle: lipgloss.NewStyle().
 			Foreground(TelegramDark.TextSecondary),
 		TypingStyle: lipgloss.NewStyle().
@@ -108,7 +108,7 @@ func (m InputAreaModel) View() string {
 	inputRow := m.ContainerStyle.Width(m.Width).Render(m.Input.View() + "   [Send ⏎]")
 	rows = append(rows, inputRow)
 
-	hints := m.HintStyle.Render("[Attach Ctrl+O] [Cancel Esc] [Typing Ctrl+T]")
+	hints := m.HintStyle.Render(strings.Join([]string{"[Attach Ctrl+O]", "[Cancel Esc]", "[Typing Ctrl+T]"}, strings.Repeat(" ", spaceLg)))
 	rows = append(rows, hints)
 
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
@@ -121,5 +121,5 @@ func (m InputAreaModel) inputWidth() int {
 	if m.Width < 18 {
 		return m.Width
 	}
-	return m.Width - 16
+	return m.Width - 20
 }

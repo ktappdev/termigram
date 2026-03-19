@@ -2,13 +2,21 @@ package ui
 
 import "github.com/charmbracelet/lipgloss"
 
+const (
+	spaceXs = 0
+	spaceSm = 1
+	spaceMd = 2
+	spaceLg = 3
+)
+
 // Styles holds base reusable style definitions for the TUI.
 type Styles struct {
-	App     lipgloss.Style
-	Header  lipgloss.Style
-	Sidebar lipgloss.Style
-	Content lipgloss.Style
-	Input   lipgloss.Style
+	App           lipgloss.Style
+	Header        lipgloss.Style
+	Sidebar       lipgloss.Style
+	SidebarBorder lipgloss.Style
+	Content       lipgloss.Style
+	Input         lipgloss.Style
 }
 
 // DefaultStyles returns minimal theme-aware styles for bootstrapping the UI package.
@@ -20,16 +28,20 @@ func DefaultStyles() Styles {
 		Header: lipgloss.NewStyle().
 			Background(TelegramDark.BgSecondary).
 			Foreground(TelegramDark.TextPrimary).
-			Padding(0, 1),
+			Padding(spaceXs, spaceSm),
 		Sidebar: lipgloss.NewStyle().
 			Background(TelegramDark.BgSecondary).
 			Foreground(TelegramDark.TextPrimary),
+		SidebarBorder: lipgloss.NewStyle().
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderRight(true).
+			BorderForeground(TelegramDark.BgHover),
 		Content: lipgloss.NewStyle().
 			Background(TelegramDark.BgPrimary).
 			Foreground(TelegramDark.TextPrimary),
 		Input: lipgloss.NewStyle().
 			Background(TelegramDark.BgSecondary).
 			Foreground(TelegramDark.TextPrimary).
-			Padding(0, 1),
+			Padding(spaceXs, spaceSm),
 	}
 }

@@ -209,7 +209,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		headerSize := tea.WindowSizeMsg{Width: m.Width, Height: 1}
+		headerSize := tea.WindowSizeMsg{Width: m.Width, Height: m.headerBlockHeight()}
 		chatSize := tea.WindowSizeMsg{Width: m.ChatList.Width, Height: m.ChatList.Height}
 		messageSize := tea.WindowSizeMsg{Width: m.Messages.Width, Height: m.Messages.Height}
 		inputSize := tea.WindowSizeMsg{Width: m.Width, Height: m.inputBlockHeight()}
@@ -347,7 +347,7 @@ func (m Model) View() string {
 			body = lipgloss.JoinVertical(lipgloss.Left, modeLine, bodyPanel)
 		}
 	} else {
-		chatPanel := m.ChatList.BaseStyle.Width(sidebarWidth).Height(bodyHeight).Render(m.ChatList.View())
+		chatPanel := m.Styles.SidebarBorder.Width(sidebarWidth).Height(bodyHeight).Render(m.ChatList.View())
 		messagePanel := m.Messages.BaseStyle.Width(messageWidth).Height(bodyHeight).Render(m.Messages.View())
 		body = lipgloss.JoinHorizontal(lipgloss.Top, chatPanel, messagePanel)
 	}
@@ -385,7 +385,7 @@ func (m *Model) layoutComponents() {
 	sidebarWidth, messageWidth := m.computePaneWidths()
 
 	m.Header.Width = m.Width
-	m.ChatList.Width = sidebarWidth
+	m.ChatList.Width = m.chatPanelContentWidth(sidebarWidth)
 	m.ChatList.Height = bodyHeight
 	m.Messages.Width = messageWidth
 	m.Messages.Height = bodyHeight
@@ -573,7 +573,7 @@ func (m Model) statusLineHeight() int {
 }
 
 func (m Model) bodyHeight() int {
-	bodyHeight := m.Height - 1 - m.inputBlockHeight() - 1 - m.statusLineHeight()
+	bodyHeight := m.Height - m.headerBlockHeight() - m.inputBlockHeight() - 1 - m.statusLineHeight()
 	if m.isCompactLayout() {
 		bodyHeight-- // compact mode label row
 	}
@@ -581,6 +581,10 @@ func (m Model) bodyHeight() int {
 		bodyHeight = 1
 	}
 	return bodyHeight
+}
+
+func (m Model) headerBlockHeight() int {
+	return 2
 }
 
 func (m Model) computePaneWidths() (int, int) {
@@ -600,6 +604,16 @@ func (m Model) computePaneWidths() (int, int) {
 		messageWidth = 1
 	}
 	return sidebarWidth, messageWidth
+}
+
+func (m Model) chatPanelContentWidth(sidebarWidth int) int {
+	if m.isCompactLayout() {
+		return sidebarWidth
+	}
+	if sidebarWidth <= 1 {
+		return 1
+	}
+	return sidebarWidth - 1
 }
 
 func (m Model) compactModeLabel() string {
