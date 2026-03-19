@@ -1,0 +1,21 @@
+title: termigram Docs
+description: Documentation for the termigram Telegram command-line client.
+baseurl: ""
+url: ""
+markdown: kramdown
+theme: minima
+plugins:
+  - jekyll-sitemap
+collections:
+  guides:
+    output: true
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor

@@ -3,9 +3,7 @@ name: Deploy GitHub Pages
 on:
   push:
     branches:
-      # Replace [ACTIVE_BRANCH] with the branch that should publish GitHub Pages.
-      # Example: - 'develop' or - 'release/site-preview'
-      - '[ACTIVE_BRANCH]'
+      - main
   workflow_dispatch:
 
 permissions:
@@ -14,31 +12,12 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-[ACTIVE_BRANCH]
+  group: pages-main
   cancel-in-progress: true
 
 jobs:
-  branch-guard:
-    name: Verify active branch placeholder and ref
-    runs-on: ubuntu-latest
-    steps:
-      - name: Prevent accidental deployment from the wrong branch
-        env:
-          ACTIVE_BRANCH: "[ACTIVE_BRANCH]"
-        run: |
-          if [ "$ACTIVE_BRANCH" = '[ACTIVE_BRANCH]' ]; then
-            echo "Replace [ACTIVE_BRANCH] in .github/workflows/pages.yml before enabling this workflow."
-            exit 1
-          fi
-
-          if [ "${GITHUB_REF}" != "refs/heads/${ACTIVE_BRANCH}" ]; then
-            echo "This workflow only deploys from refs/heads/${ACTIVE_BRANCH}. Current ref: ${GITHUB_REF}"
-            exit 1
-          fi
-
   build:
     name: Build Jekyll site
-    needs: branch-guard
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -79,5 +58,5 @@ jobs:
         uses: actions/deploy-pages@v4
 
 # Branch protection note:
-# After substituting [ACTIVE_BRANCH], configure that branch in GitHub settings to require
-# the sitemap workflow check before merges so untested content cannot reach deployment.
+# Configure the main branch in GitHub settings to require the sitemap workflow check before merges
+# so untested site changes cannot reach deployment.
