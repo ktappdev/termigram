@@ -45,7 +45,7 @@ func (a *uiBackendAdapter) GetMessages(ctx context.Context, target string, limit
 
 	out := make([]ui.BackendMessage, 0, len(msgs))
 	for _, msg := range msgs {
-		outgoing := msg.FromID == a.selfID
+		outgoing := msg.Outgoing || (a.selfID != 0 && msg.FromID == a.selfID)
 		sender := msg.FromName
 		if outgoing {
 			sender = "You"

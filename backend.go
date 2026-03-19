@@ -65,6 +65,7 @@ type MessageOutput struct {
 	FromName string `json:"from_name"`
 	Message  string `json:"message"`
 	Date     int64  `json:"date"`
+	Outgoing bool   `json:"outgoing,omitempty"`
 }
 
 // ContactOutput represents contact data for JSON output.

@@ -165,6 +165,7 @@ func (b *UserBackend) messageOutputsFromClasses(messages []tg.MessageClass, limi
 			FromName: fromName,
 			Message:  message.Message,
 			Date:     int64(message.Date),
+			Outgoing: message.GetOut(),
 		})
 	}
 	return out
