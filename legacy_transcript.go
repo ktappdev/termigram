@@ -7,7 +7,11 @@ import (
 	"time"
 )
 
-const legacyTranscriptLimit = 100
+const (
+	legacyTranscriptLimit             = 100
+	legacyTranscriptHistoryFetchLimit = 20
+	unreadTranscriptMinContextEntries = 2
+)
 
 type legacyTranscriptEntry struct {
 	MessageID int64
@@ -15,6 +19,11 @@ type legacyTranscriptEntry struct {
 	Header    string
 	Body      string
 	Meta      string
+}
+
+var legacyTranscriptMessageLoader = func(ctx context.Context, cli *TelegramCLI, target string, limit int) ([]MessageOutput, error) {
+	backend := &UserBackend{cli: cli}
+	return backend.GetMessages(ctx, target, limit)
 }
 
 func (cli *TelegramCLI) setLegacyConsole(console *legacyConsole) {
@@ -122,22 +131,29 @@ func legacyEntryKey(entry legacyTranscriptEntry) string {
 }
 
 func (cli *TelegramCLI) ensureLegacyTranscript(ctx context.Context, target string, label string) error {
+	return cli.ensureLegacyTranscriptContext(ctx, target, label, 1)
+}
+
+func (cli *TelegramCLI) ensureLegacyTranscriptContext(ctx context.Context, target string, label string, minEntries int) error {
 	if ctx == nil {
 		return nil
 	}
+	if minEntries < 1 {
+		minEntries = 1
+	}
 
-	if _, loaded := cli.legacyTranscriptSnapshot(target); loaded {
+	entries, loaded := cli.legacyTranscriptSnapshot(target)
+	if loaded && len(entries) >= minEntries {
 		return nil
 	}
 
-	backend := &UserBackend{cli: cli}
-	messages, err := backend.GetMessages(ctx, target, 20)
+	messages, err := legacyTranscriptMessageLoader(ctx, cli, target, legacyTranscriptHistoryFetchLimit)
 	if err != nil {
 		return err
 	}
 
-	entries := legacyEntriesFromMessages(target, label, messages)
-	cli.mergeLegacyTranscriptEntries(target, entries)
+	fetchedEntries := legacyEntriesFromMessages(target, label, messages)
+	cli.mergeLegacyTranscriptEntries(target, fetchedEntries)
 	return nil
 }
 
