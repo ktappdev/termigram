@@ -1,27 +1,18 @@
 package ui
 
-import "strings"
-
 func (m *Model) syncHeaderChat() {
-	m.Header.Title = "termigram"
+	m.Header.Title = homeTitle
+}
+
+func (m Model) headerCurrentChat() string {
+	if m.Focus == focusChatList {
+		return ""
+	}
 
 	chat, ok := m.selectedChat()
 	if !ok {
-		return
+		return ""
 	}
 
-	label := chat.Title
-	if label == "" {
-		label = strings.TrimPrefix(chat.Target, "@")
-	}
-	if label == "" {
-		return
-	}
-
-	if chat.Target != "" {
-		m.Header.Title = "termigram · " + label + " (" + chat.Target + ")"
-		return
-	}
-
-	m.Header.Title = "termigram · " + label
+	return chatLabel(chat.Title, chat.Target, "")
 }

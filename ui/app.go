@@ -311,7 +311,7 @@ func (m Model) View() string {
 	}
 
 	header := m.Header
-	header.CurrentChat = m.selectedChatTitle()
+	header.CurrentChat = m.headerCurrentChat()
 	headerView := header.View()
 	inputView := m.Input.View()
 	shortcutBar := m.renderShortcutBar()
