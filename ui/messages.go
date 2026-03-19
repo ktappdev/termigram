@@ -105,7 +105,7 @@ func (m MessageViewModel) renderMessage(msg Message) string {
 	bubbleWidth := lipgloss.Width(bubble)
 
 	parts := make([]string, 0, 3)
-	if senderLabel := m.senderLabel(msg); senderLabel != "" {
+	if senderLabel := m.senderLabel(msg, bubbleWidth); senderLabel != "" {
 		parts = append(parts, senderLabel)
 	}
 	parts = append(parts, bubble)
@@ -159,32 +159,75 @@ func (m MessageViewModel) bubbleWidth() int {
 }
 
 func (m MessageViewModel) messageText(msg Message) string {
-	text := strings.TrimSpace(msg.Text)
-	if text == "" {
+	if msg.Text == "" {
 		return " "
 	}
-	return text
+	return msg.Text
 }
 
-func (m MessageViewModel) senderLabel(msg Message) string {
+func (m MessageViewModel) senderLabel(msg Message, width int) string {
 	if msg.Outgoing {
 		return ""
 	}
 
 	senderText := strings.TrimSpace(msg.Sender)
-	if senderText == "" || senderText == "Unknown" {
+	if senderText == "" || senderText == "Unknown" || m.isRedundantSenderLabel(senderText, msg.Chat) {
 		return ""
 	}
 
-	chatText := strings.ToLower(strings.TrimSpace(msg.Chat))
-	if chatText != "" && strings.Contains(chatText, strings.ToLower(senderText)) {
-		return ""
+	if width < 1 {
+		width = m.bubbleWidth()
+	}
+	if width < 1 {
+		width = 1
 	}
 
 	return lipgloss.NewStyle().
 		Foreground(TelegramDark.AccentGreen).
 		Bold(true).
+		Width(width).
+		MaxWidth(width).
 		Render(senderText)
+}
+
+func (m MessageViewModel) isRedundantSenderLabel(sender string, chat string) bool {
+	normalizedSender := normalizeLabel(sender)
+	if normalizedSender == "" {
+		return true
+	}
+
+	for _, candidate := range chatLabelCandidates(chat) {
+		if normalizedSender == normalizeLabel(candidate) {
+			return true
+		}
+	}
+	return false
+}
+
+func chatLabelCandidates(chat string) []string {
+	chat = strings.TrimSpace(chat)
+	if chat == "" {
+		return nil
+	}
+
+	candidates := []string{chat}
+	if open := strings.LastIndex(chat, " ("); open != -1 && strings.HasSuffix(chat, ")") {
+		title := strings.TrimSpace(chat[:open])
+		target := strings.TrimSpace(chat[open+2 : len(chat)-1])
+		if title != "" {
+			candidates = append(candidates, title)
+		}
+		if target != "" {
+			candidates = append(candidates, target)
+		}
+	}
+	return candidates
+}
+
+func normalizeLabel(value string) string {
+	value = strings.TrimSpace(strings.ToLower(value))
+	value = strings.TrimPrefix(value, "@")
+	return value
 }
 
 func (m MessageViewModel) metaLine(msg Message, width int) string {
