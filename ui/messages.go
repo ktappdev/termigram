@@ -45,12 +45,10 @@ func NewMessageView() MessageViewModel {
 			Foreground(TelegramDark.TextPrimary),
 		IncomingStyle: lipgloss.NewStyle().
 			Background(TelegramDark.BgMessageIn).
-			Foreground(TelegramDark.TextPrimary).
-			Padding(0, 1),
+			Foreground(TelegramDark.TextPrimary),
 		OutgoingStyle: lipgloss.NewStyle().
 			Background(TelegramDark.BgMessageOut).
-			Foreground(TelegramDark.TextPrimary).
-			Padding(0, 1),
+			Foreground(TelegramDark.TextPrimary),
 		MetaStyle: lipgloss.NewStyle().
 			Foreground(TelegramDark.TextSecondary),
 	}
@@ -103,48 +101,22 @@ func (m MessageViewModel) View() string {
 }
 
 func (m MessageViewModel) renderMessage(msg Message) string {
-	bubbleStyle := m.IncomingStyle
-	if msg.Outgoing {
-		bubbleStyle = m.OutgoingStyle
-	}
+	bubble := m.bubbleStyle(msg.Outgoing).MaxWidth(m.bubbleWidth()).Render(m.messageText(msg))
+	bubbleWidth := lipgloss.Width(bubble)
 
-	bubbleWidth := m.bubbleWidth()
-	bubble := bubbleStyle.MaxWidth(bubbleWidth).Render(msg.Text)
-
-	senderLabel := ""
-	if !msg.Outgoing {
-		senderText := msg.Sender
-		if senderText == "" {
-			senderText = "Unknown"
-		}
-		if msg.Chat != "" {
-			senderText = fmt.Sprintf("%s • %s", senderText, msg.Chat)
-		}
-		senderLabel = lipgloss.NewStyle().Foreground(TelegramDark.AccentGreen).Bold(true).Render(senderText)
-	}
-
-	receipt := ""
-	if msg.Outgoing {
-		receipt = "✓"
-		if msg.Read {
-			receipt = "✓✓"
-		}
-	}
-
-	meta := strings.TrimSpace(fmt.Sprintf("%s %s", msg.Time, receipt))
-	metaLine := m.MetaStyle.Render(meta)
-	parts := []string{}
-	if senderLabel != "" {
+	parts := make([]string, 0, 3)
+	if senderLabel := m.senderLabel(msg); senderLabel != "" {
 		parts = append(parts, senderLabel)
 	}
-	parts = append(parts, bubble, metaLine)
-	block := lipgloss.JoinVertical(lipgloss.Left, parts...)
+	parts = append(parts, bubble)
+	parts = append(parts, m.metaLine(msg, bubbleWidth))
 
+	align := lipgloss.Left
 	if msg.Outgoing {
-		return lipgloss.NewStyle().Width(m.Width).Align(lipgloss.Right).Render(block)
+		align = lipgloss.Right
 	}
 
-	return lipgloss.NewStyle().Width(m.Width).Align(lipgloss.Left).Render(block)
+	return lipgloss.PlaceHorizontal(m.Width, align, lipgloss.JoinVertical(lipgloss.Left, parts...))
 }
 
 func (m MessageViewModel) chatContextLine() string {
@@ -155,15 +127,86 @@ func (m MessageViewModel) chatContextLine() string {
 	return m.MetaStyle.Render("Chat: " + m.Messages[0].Chat)
 }
 
+func (m MessageViewModel) bubbleStyle(outgoing bool) lipgloss.Style {
+	style := m.IncomingStyle.BorderForeground(TelegramDark.AccentGreen)
+	if outgoing {
+		style = m.OutgoingStyle.BorderForeground(TelegramDark.AccentBlue)
+	}
+
+	switch {
+	case m.Width < 22:
+		return style.Padding(0, 0)
+	case m.Width < 30:
+		return style.Border(lipgloss.NormalBorder()).Padding(0, 0)
+	default:
+		return style.Border(lipgloss.RoundedBorder()).Padding(0, 1)
+	}
+}
+
 func (m MessageViewModel) bubbleWidth() int {
 	if m.Width <= 0 {
 		return 60
 	}
-	max := (m.Width * 7) / 10
-	if max < 20 {
-		return m.Width
+	available := m.Width - 2
+	if available < 1 {
+		available = 1
+	}
+	max := (available * 3) / 4
+	if max < 18 {
+		max = available
 	}
 	return max
+}
+
+func (m MessageViewModel) messageText(msg Message) string {
+	text := strings.TrimSpace(msg.Text)
+	if text == "" {
+		return " "
+	}
+	return text
+}
+
+func (m MessageViewModel) senderLabel(msg Message) string {
+	if msg.Outgoing {
+		return ""
+	}
+
+	senderText := strings.TrimSpace(msg.Sender)
+	if senderText == "" || senderText == "Unknown" {
+		return ""
+	}
+
+	chatText := strings.ToLower(strings.TrimSpace(msg.Chat))
+	if chatText != "" && strings.Contains(chatText, strings.ToLower(senderText)) {
+		return ""
+	}
+
+	return lipgloss.NewStyle().
+		Foreground(TelegramDark.AccentGreen).
+		Bold(true).
+		Render(senderText)
+}
+
+func (m MessageViewModel) metaLine(msg Message, width int) string {
+	receipt := ""
+	if msg.Outgoing {
+		receipt = "✓"
+		if msg.Read {
+			receipt = "✓✓"
+		}
+	}
+
+	meta := strings.TrimSpace(fmt.Sprintf("%s %s", msg.Time, receipt))
+	align := lipgloss.Left
+	if msg.Outgoing {
+		align = lipgloss.Right
+	}
+
+	if width < 1 {
+		width = 1
+	}
+
+	return m.MetaStyle.Width(width).Align(align).Render(meta)
 }
 
 func (m MessageViewModel) pageSize() int {
@@ -177,8 +220,8 @@ func (m MessageViewModel) maxVisible() int {
 	if m.Height <= 0 {
 		return len(m.Messages)
 	}
-	// Rough estimate: each message uses ~3 lines in this stub.
-	visible := m.Height / 3
+	// Rough estimate: wrapped bubble messages tend to use ~4 lines.
+	visible := m.Height / 4
 	if visible < 1 {
 		visible = 1
 	}

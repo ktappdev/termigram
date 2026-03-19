@@ -20,8 +20,8 @@ var TelegramDark = struct {
 }{
 	BgPrimary:     lipgloss.Color("#17212b"),
 	BgSecondary:   lipgloss.Color("#0e1621"),
-	BgMessageIn:   lipgloss.Color("#2b5278"),
-	BgMessageOut:  lipgloss.Color("#182533"),
+	BgMessageIn:   lipgloss.Color("#1d3a2a"),
+	BgMessageOut:  lipgloss.Color("#1f3f5b"),
 	BgHover:       lipgloss.Color("#202b36"),
 	BgSelected:    lipgloss.Color("#2b5278"),
 	TextPrimary:   lipgloss.Color("#ffffff"),
