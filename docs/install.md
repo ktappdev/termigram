@@ -98,7 +98,7 @@ Credential lookup order:
 
 ### Session storage
 
-By default, sessions are stored at `~/.termigram/session.json`.
+By default, termigram stores your auth session at `~/.termigram/session.json`. Chats and message history are fetched from Telegram and are not stored locally by default.
 
 Override with:
 

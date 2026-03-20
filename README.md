@@ -24,9 +24,9 @@ On first run:
 2. Enter the verification code sent by Telegram
 3. Start chatting
 
-Your session is saved automatically to `~/.termigram/session.json` by default.
+Your auth session is saved automatically to `~/.termigram/session.json` by default. Chats and message history are fetched from Telegram and are not stored locally by default.
 
-Default interactive mode keeps the familiar command/transcript workflow. Open a chat with `\msg` or `\to`, then type plain text to send into the active chat.
+Default interactive mode uses the command/transcript workflow. Open a chat with `\msg`, `\to`, `\chats`, or `\unread`, then type plain text to send into the active chat.
 
 If you want the optional Bubble Tea split-pane UI instead, run:
 
@@ -38,11 +38,11 @@ If you want the optional Bubble Tea split-pane UI instead, run:
 
 ### Interactive UI modes
 
-- `./termigram` uses the legacy command/transcript UI by default
-- `./termigram --ui legacy` forces the legacy command/transcript UI
+- `./termigram` uses the default command/transcript UI
+- `./termigram --ui legacy` uses the same command/transcript UI explicitly
 - `./termigram --ui tui` opens the optional Bubble Tea split-pane UI
 
-#### Legacy interactive commands
+#### Interactive commands
 
 - `\me`
 - `\contacts`
@@ -50,6 +50,7 @@ If you want the optional Bubble Tea split-pane UI instead, run:
 - `\msg <id|@username> <text>`
 - `\to <id|@username>`
 - `\chats`
+- `\unread`
 - `\here`
 - `\close`
 - `\help`
@@ -110,21 +111,21 @@ Before one-shot commands work, run interactive once and complete phone login:
 
 ### Terminal UI notes
 
-TTY interactive mode defaults to the legacy command/transcript UI, but it now owns prompt input so sent messages do not echo twice and redraws the active chat transcript on resize for more stable bubbles.
+TTY interactive mode defaults to the command/transcript UI.
 
-Legacy chat flow:
+Interactive chat flow:
 
-- `\msg <id|@user> <text>` starts a chat and sends immediately
+- `\msg <id|@user> <text>` sends a message and enters that chat
 - `\to <id|@user>` switches the active chat
+- `\chats` opens the recent chats picker
+- `\unread` opens chats with unread messages
 - typing plain text sends to the active chat
-- `\unread` jumps to a chat with unread messages
 - `\close` exits chat mode
 
 Optional Bubble Tea UI:
 
 - Run `./termigram --ui tui`
-- See `/Users/kentaylor/developer/telegram-cli/termigram/docs/tui-guide.md`
-- Resize implementation notes remain in `/Users/kentaylor/developer/telegram-cli/termigram/docs/bubbletea-resize-research.md`
+- See [docs/tui-guide.md](docs/tui-guide.md)
 
 ## Help and version
 

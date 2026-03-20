@@ -20,7 +20,7 @@ Run interactive mode once first:
 ./termigram
 ```
 
-That creates or reuses the local session file before scripted commands run.
+That creates or reuses the local auth session file before scripted commands run. Chats and message history are still fetched from Telegram when needed.
 
 ### Build output shows `dev` as the version
 

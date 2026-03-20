@@ -37,7 +37,9 @@ On first run:
 
 1. Enter your phone number
 2. Enter the Telegram verification code
-3. Reuse the saved session on later runs
+3. Reuse the saved auth session on later runs
+
+By default, that session is stored in `~/.termigram/session.json`. Chats and message history are fetched from Telegram and are not stored locally by default.
 
 ## 4. Validate key CLI commands
 
