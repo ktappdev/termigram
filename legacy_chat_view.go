@@ -24,7 +24,18 @@ func (cli *TelegramCLI) redrawLegacyChatView() {
 
 	width, height := currentLegacyTerminalSize()
 	entries, _ := cli.legacyTranscriptSnapshot(target)
+	previewBlock, previewRows := cli.renderInlineImagePreview(target, entries, width, height)
+	if previewRows > 0 && height-previewRows >= inlineImageMinPaneRows {
+		height -= previewRows
+	} else {
+		previewBlock = ""
+		previewRows = 0
+	}
+
 	view := renderLegacyChatView(label, target, entries, width, height)
+	if previewBlock != "" {
+		view += "\n" + previewBlock
+	}
 	_ = console.WriteBlock("\033[2J\033[H" + view + "\n")
 }
 

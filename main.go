@@ -226,12 +226,19 @@ Interactive quick start:
   \image ./meme.png   send an image into the active chat
   \openimage          pick from recent images in the active chat
   \openimage last     open the newest image fast
+  inline preview      auto-shows latest image in kitty/iTerm2 when supported
   \help               show the full interactive command list
 
 Global flags:
   -h, --help       Show this help
   -v, --version    Show app version
   --ui MODE        Interactive UI: auto (default legacy) or legacy
+
+Inline image preview env:
+  TERMIGRAM_INLINE_IMAGES=auto|on|off
+  TERMIGRAM_INLINE_IMAGE_PROTOCOL=kitty|iterm2
+  TERMIGRAM_INLINE_IMAGE_COLS=28
+  TERMIGRAM_INLINE_IMAGE_ROWS=10
 
 Command help:
   ./termigram <command> --help`)

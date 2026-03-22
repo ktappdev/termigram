@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/gotd/td v0.91.0
 	github.com/mattn/go-runewidth v0.0.15
+	golang.org/x/image v0.21.0
 	golang.org/x/sys v0.21.0
 	golang.org/x/term v0.21.0
 )

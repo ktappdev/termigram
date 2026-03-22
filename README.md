@@ -118,10 +118,29 @@ Interactive chat flow:
 - `\openimage` opens an image picker for the active chat
 - `\openimage last` opens the newest image in the active chat
 - `\openimage [message-id|query]` opens a specific image id or starts the picker filtered by your query
+- supported terminals can auto-preview the latest image inline in the active chat
 - `\chats` opens the recent chats picker
 - `\unread` opens chats with unread messages
 - typing plain text sends to the active chat
 - `\close` exits chat mode
+
+### Inline image preview
+
+When the terminal supports it, termigram can render the latest image in the active chat inline.
+
+Current auto-detected protocols:
+
+- kitty graphics protocol
+- iTerm2 inline image protocol
+
+Environment controls:
+
+- `TERMIGRAM_INLINE_IMAGES=auto|on|off`
+- `TERMIGRAM_INLINE_IMAGE_PROTOCOL=kitty|iterm2`
+- `TERMIGRAM_INLINE_IMAGE_COLS=28`
+- `TERMIGRAM_INLINE_IMAGE_ROWS=10`
+
+`auto` is the default. Set `off` to disable inline previews completely.
 
 ## Help and version
 
