@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	tea "github.com/charmbracelet/bubbletea"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,7 +33,6 @@ type TelegramCLI struct {
 	chatLastMessage   map[string]string
 	chatUnreadCount   map[string]int
 	seenIncoming      map[string]time.Time
-	tuiProgram        *tea.Program
 	legacyMu          sync.RWMutex
 	legacyConsole     *legacyConsole
 	legacyTranscripts map[string][]legacyTranscriptEntry

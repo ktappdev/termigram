@@ -22,12 +22,14 @@ func TestParseRootFlagsDefaultUI(t *testing.T) {
 }
 
 func TestParseInteractiveUIModeValidation(t *testing.T) {
-	for _, candidate := range []string{"auto", "tui", "legacy", "AUTO"} {
+	for _, candidate := range []string{"auto", "legacy", "AUTO"} {
 		if _, err := parseInteractiveUIMode(candidate); err != nil {
 			t.Fatalf("expected %q to be accepted, got error %v", candidate, err)
 		}
 	}
-	if _, err := parseInteractiveUIMode("broken"); err == nil {
-		t.Fatalf("expected invalid ui mode to return an error")
+	for _, candidate := range []string{"tui", "broken"} {
+		if _, err := parseInteractiveUIMode(candidate); err == nil {
+			t.Fatalf("expected invalid ui mode %q to return an error", candidate)
+		}
 	}
 }

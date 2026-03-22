@@ -9,7 +9,6 @@ import (
 
 	"github.com/gotd/td/telegram/message/peer"
 	"github.com/gotd/td/tg"
-	"github.com/ktappdev/termigram/ui"
 	"github.com/mattn/go-runewidth"
 	"golang.org/x/term"
 )
@@ -381,21 +380,6 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 	}
 	cli.appendLegacyTranscriptEntry(fromTarget, entry)
 
-	if cli.sendTUIMessage(ui.IncomingMessageMsg{
-		Target:    fromTarget,
-		ChatTitle: fromName,
-		Message: ui.BackendMessage{
-			ID:       int64(msg.ID),
-			Text:     msg.Message,
-			Time:     msgTime.Format("15:04"),
-			Sender:   fromName,
-			Chat:     fromTarget,
-			Outgoing: false,
-			Read:     false,
-		},
-	}) {
-		return
-	}
 
 	if !mismatch && cli.currentLegacyConsole() != nil {
 		cli.redrawLegacyChatView()

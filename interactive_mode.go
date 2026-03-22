@@ -12,7 +12,6 @@ type interactiveUIMode string
 
 const (
 	interactiveUIAuto   interactiveUIMode = "auto"
-	interactiveUITUI    interactiveUIMode = "tui"
 	interactiveUILegacy interactiveUIMode = "legacy"
 )
 
@@ -22,10 +21,10 @@ func parseInteractiveUIMode(value string) (interactiveUIMode, error) {
 		return interactiveUIAuto, nil
 	}
 	switch mode {
-	case interactiveUIAuto, interactiveUITUI, interactiveUILegacy:
+	case interactiveUIAuto, interactiveUILegacy:
 		return mode, nil
 	default:
-		return "", fmt.Errorf("unsupported --ui value %q (expected auto, tui, or legacy)", value)
+		return "", fmt.Errorf("unsupported --ui value %q (expected auto or legacy)", value)
 	}
 }
 
@@ -41,13 +40,8 @@ func runInteractiveMode(cfg Config, uiValue string) error {
 
 	cli := NewTelegramCLI(cfg.TelegramAppID, cfg.TelegramAppHash, cfg.SessionPath)
 	switch mode {
-	case interactiveUILegacy:
+	case interactiveUILegacy, interactiveUIAuto:
 		return cli.RunLegacy()
-	case interactiveUITUI:
-		if !interactiveTTYAvailable() {
-			return fmt.Errorf("--ui=tui requires an interactive terminal")
-		}
-		return cli.RunTUI()
 	default:
 		return cli.RunLegacy()
 	}

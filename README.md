@@ -28,19 +28,12 @@ Your auth session is saved automatically to `~/.termigram/session.json` by defau
 
 Default interactive mode uses the command/transcript workflow. Open a chat with `\msg`, `\to`, `\chats`, or `\unread`, then type plain text to send into the active chat.
 
-If you want the optional Bubble Tea split-pane UI instead, run:
-
-```bash
-./termigram --ui tui
-```
-
 ## Everyday usage
 
-### Interactive UI modes
+### Interactive UI mode
 
 - `./termigram` uses the default command/transcript UI
 - `./termigram --ui legacy` uses the same command/transcript UI explicitly
-- `./termigram --ui tui` opens the optional Bubble Tea split-pane UI
 
 #### Interactive commands
 
@@ -122,17 +115,11 @@ Interactive chat flow:
 - typing plain text sends to the active chat
 - `\close` exits chat mode
 
-Optional Bubble Tea UI:
-
-- Run `./termigram --ui tui`
-- See [docs/tui-guide.md](docs/tui-guide.md)
-
 ## Help and version
 
 ```bash
 ./termigram --help
 ./termigram --version
-./termigram --ui tui
 ./termigram send --help
 ./termigram get --help
 ./termigram contacts --help

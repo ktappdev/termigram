@@ -131,7 +131,8 @@ Key files to know:
 - `commands.go`
 - `config.go`
 - `helpers.go`
-- `ui/app.go`
+- `interactive_mode.go`
+- `legacy_chat_view.go`
 - `build.sh`
 
 ## Current issues

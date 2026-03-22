@@ -85,7 +85,7 @@ func parseRootFlags(args []string) (remaining []string, mode string, uiMode stri
 	fs.BoolVar(&version, "version", false, "Show version")
 	fs.BoolVar(&version, "v", false, "Show version")
 	fs.StringVar(&modeFlag, "mode", "", "Auth mode: user (default: user)")
-	fs.StringVar(&uiFlag, "ui", "auto", "Interactive UI: auto, tui, or legacy")
+	fs.StringVar(&uiFlag, "ui", "auto", "Interactive UI: auto or legacy")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, "", "", false, err
@@ -201,7 +201,7 @@ func printRootHelp() {
 	fmt.Println(`termigram - Telegram MTProto CLI
 
 Usage:
-  ./termigram [--help|-h] [--version|-v] [--ui auto|tui|legacy]
+  ./termigram [--help|-h] [--version|-v] [--ui auto|legacy]
   ./termigram                                          # interactive mode
   ./termigram <command> [options]                      # one-shot mode
 
@@ -222,7 +222,7 @@ Examples:
 Global flags:
   -h, --help       Show this help
   -v, --version    Show app version
-  --ui MODE        Interactive UI: auto (default legacy), tui, or legacy
+  --ui MODE        Interactive UI: auto (default legacy) or legacy
 
 Command help:
   ./termigram <command> --help`)

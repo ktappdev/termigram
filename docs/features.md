@@ -47,31 +47,15 @@ Examples:
 
 ## Terminal UI capabilities
 
-The repository also contains a Bubble Tea-based UI implementation and supporting components.
+The interactive experience is the command/transcript workflow.
 
-Highlighted UI capabilities:
+Highlighted capabilities:
 
-- split-pane layout for chats and messages
-- chat filtering and search
-- unread indicators
-- draft preservation
-- reply context support
-- adaptive layout for smaller terminals
-- Telegram-inspired dark color palette
-
-## Responsive layout
-
-### Desktop view
-
-For wider terminals, the UI presents:
-
-- a chat list on the left
-- a message view on the right
-- an input area below the conversation
-
-### Compact view
-
-For narrower terminals, the UI switches to a single-panel flow that is easier to use over SSH or in split windows.
+- recent chat switching
+- unread chat picking
+- active-chat transcript redraw on resize
+- message bubbles for incoming and outgoing text
+- adaptive terminal rendering for narrower widths
 
 ## Build and release notes
 
