@@ -221,6 +221,13 @@ Examples:
   ./termigram contacts --json
   ./termigram send --help
 
+Interactive quick start:
+  \to @user           switch chats
+  \image ./meme.png   send an image into the active chat
+  \openimage          pick from recent images in the active chat
+  \openimage last     open the newest image fast
+  \help               show the full interactive command list
+
 Global flags:
   -h, --help       Show this help
   -v, --version    Show app version
@@ -246,6 +253,16 @@ Usage:
 
 Usage:
   ./termigram send-image [--json] [--timeout 30s] <user_id|@username> <source> [caption]
+
+Supported sources:
+  - local path (including dragged file paths)
+  - file:// URL
+  - http:// or https:// URL
+
+Supported formats:
+  - jpg / jpeg
+  - png
+  - webp
 
 Examples:
   ./termigram send-image @ken ./photo.png

@@ -115,6 +115,12 @@ When termigram is running interactively, these commands are available:
 - `\help`
 - `\quit`
 
+Interactive image tips:
+
+- `\openimage` opens the recent-image picker for the active chat
+- `\openimage last` opens the newest image immediately
+- `\openimage meme` opens the picker pre-filtered by `meme`
+
 ## Help and version
 
 ```bash

@@ -107,6 +107,7 @@ func (cli *TelegramCLI) RunLegacy() error {
 		fmt.Printf("%s %s %s\n", dim("Logged in as"), bold(strings.TrimSpace(self.FirstName+" "+self.LastName)), dim("@"+self.Username))
 		fmt.Printf("%s %d\n\n", dim("User ID:"), self.ID)
 
+		printInteractiveStartup()
 		printHelp()
 
 		if err := cli.loadContacts(ctx); err != nil {

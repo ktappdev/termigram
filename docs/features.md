@@ -23,6 +23,9 @@ Common interactive commands include:
 - `\find <prefix>`
 - `\msg <id|@username> <text>`
 - `\to <id|@username>`
+- `\image <source> [caption]`
+- `\openimage`
+- `\openimage last`
 - `\chats`
 - `\here`
 - `\close`
@@ -53,6 +56,8 @@ Highlighted capabilities:
 
 - recent chat switching
 - unread chat picking
+- image sending from local paths, file URLs, and HTTP/HTTPS URLs
+- recent-image picker for `\openimage`
 - active-chat transcript redraw on resize
 - message bubbles for incoming and outgoing text
 - adaptive terminal rendering for narrower widths
