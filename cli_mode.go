@@ -25,6 +25,8 @@ func RunCLICommand(ctx context.Context, backend TelegramBackend, cmd CLICommand)
 	switch cmd.Name {
 	case "send":
 		return cmdSend(ctx, backend, cmd.Args, cmd.JSON)
+	case "send-image":
+		return cmdSendImage(ctx, backend, cmd.Args, cmd.JSON)
 	case "get":
 		return cmdGet(ctx, backend, cmd.Args, cmd.Limit, cmd.JSON)
 	case "contacts":
@@ -36,6 +38,60 @@ func RunCLICommand(ctx context.Context, backend TelegramBackend, cmd CLICommand)
 	default:
 		return fmt.Errorf("unknown command: %s", cmd.Name)
 	}
+}
+
+func cmdSendImage(ctx context.Context, backend TelegramBackend, args []string, asJSON bool) error {
+	if len(args) < 2 {
+		return fmt.Errorf("usage: send-image <user_id|@username> <source> [caption]")
+	}
+
+	imageBackend, ok := backend.(ImageSenderBackend)
+	if !ok {
+		return fmt.Errorf("backend does not support image sending")
+	}
+
+	target := args[0]
+	source := args[1]
+	caption := strings.Join(args[2:], " ")
+	resolvedUser, _ := resolveTargetForOutput(ctx, backend, target)
+
+	if err := imageBackend.SendImage(ctx, target, source, caption); err != nil {
+		return err
+	}
+
+	if asJSON {
+		data := map[string]interface{}{
+			"target":    target,
+			"source":    source,
+			"caption":   caption,
+			"timestamp": time.Now().Unix(),
+		}
+		if resolvedUser != nil {
+			sentTo := resolvedUser.Username
+			if sentTo == "" {
+				sentTo = strings.TrimSpace(resolvedUser.FirstName + " " + resolvedUser.LastName)
+			}
+			data["sent_to"] = sentTo
+			data["user_id"] = resolvedUser.ID
+		}
+		output := CLIOutput{Success: true, Data: data}
+		jsonOut, _ := json.MarshalIndent(output, "", "  ")
+		fmt.Println(string(jsonOut))
+		return nil
+	}
+
+	displayTarget := target
+	if resolvedUser != nil {
+		displayTarget = resolvedUser.Username
+		if displayTarget == "" {
+			displayTarget = strings.TrimSpace(resolvedUser.FirstName + " " + resolvedUser.LastName)
+		}
+		if displayTarget == "" {
+			displayTarget = target
+		}
+	}
+	fmt.Printf("Image sent to %s!\n", displayTarget)
+	return nil
 }
 
 func cmdSend(ctx context.Context, backend TelegramBackend, args []string, asJSON bool) error {

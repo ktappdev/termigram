@@ -9,6 +9,11 @@ type TelegramBackend interface {
 	SendMessage(ctx context.Context, target string, text string) error
 }
 
+// ImageSenderBackend is implemented by backends that can send image attachments.
+type ImageSenderBackend interface {
+	SendImage(ctx context.Context, target string, source string, caption string) error
+}
+
 // HistoryBackend is implemented by backends that can fetch recent messages.
 type HistoryBackend interface {
 	GetMessages(ctx context.Context, target string, limit int) ([]MessageOutput, error)
@@ -60,12 +65,13 @@ type UserOutput struct {
 
 // MessageOutput represents message data for JSON output.
 type MessageOutput struct {
-	ID       int64  `json:"id"`
-	FromID   int64  `json:"from_id"`
-	FromName string `json:"from_name"`
-	Message  string `json:"message"`
-	Date     int64  `json:"date"`
-	Outgoing bool   `json:"outgoing,omitempty"`
+	ID       int64            `json:"id"`
+	FromID   int64            `json:"from_id"`
+	FromName string           `json:"from_name"`
+	Message  string           `json:"message"`
+	Date     int64            `json:"date"`
+	Outgoing bool             `json:"outgoing,omitempty"`
+	Image    *ImageAttachment `json:"image,omitempty"`
 }
 
 // ContactOutput represents contact data for JSON output.

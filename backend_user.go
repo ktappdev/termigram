@@ -7,6 +7,7 @@ import (
 
 	"github.com/gotd/td/telegram/message"
 	"github.com/gotd/td/telegram/message/peer"
+	"github.com/gotd/td/telegram/message/styling"
 	"github.com/gotd/td/tg"
 )
 
@@ -101,6 +102,36 @@ func (b *UserBackend) SendMessage(ctx context.Context, target string, text strin
 	return nil
 }
 
+func (b *UserBackend) SendImage(ctx context.Context, target string, source string, caption string) error {
+	if b.cli.api == nil || b.cli.sender == nil {
+		return fmt.Errorf("user backend is not initialized")
+	}
+
+	prepared, err := prepareImageSource(ctx, source)
+	if err != nil {
+		return err
+	}
+	defer prepared.Cleanup()
+
+	return b.sendPreparedImage(ctx, target, prepared, caption)
+}
+
+func (b *UserBackend) sendPreparedImage(ctx context.Context, target string, prepared preparedImageSource, caption string) error {
+	request := b.cli.sender.Resolve(target)
+	captionOptions := imageCaptionOptions(caption)
+
+	if prepared.SendAsFile {
+		if _, err := request.Upload(message.FromPath(prepared.Path)).File(ctx, captionOptions...); err != nil {
+			return fmt.Errorf("failed to send image file: %w", err)
+		}
+	} else {
+		if _, err := request.Upload(message.FromPath(prepared.Path)).Photo(ctx, captionOptions...); err != nil {
+			return fmt.Errorf("failed to send photo: %w", err)
+		}
+	}
+	return nil
+}
+
 func (b *UserBackend) GetMessages(ctx context.Context, target string, limit int) ([]MessageOutput, error) {
 	if b.cli.api == nil {
 		return nil, fmt.Errorf("user backend is not initialized")
@@ -142,33 +173,17 @@ func (b *UserBackend) messageOutputsFromClasses(messages []tg.MessageClass, limi
 		if !ok {
 			continue
 		}
-
-		fromID := int64(0)
-		fromName := "Unknown"
-		if from, _ := message.GetFromID(); from != nil {
-			if peerUser, ok := from.(*tg.PeerUser); ok {
-				fromID = peerUser.UserID
-				if u, found := b.cli.getUserByID(peerUser.UserID); found {
-					fromName = strings.TrimSpace(u.FirstName + " " + u.LastName)
-					if fromName == "" {
-						fromName = fmt.Sprintf("User %d", peerUser.UserID)
-					}
-				} else {
-					fromName = fmt.Sprintf("User %d", peerUser.UserID)
-				}
-			}
-		}
-
-		out = append(out, MessageOutput{
-			ID:       int64(message.ID),
-			FromID:   fromID,
-			FromName: fromName,
-			Message:  message.Message,
-			Date:     int64(message.Date),
-			Outgoing: message.GetOut(),
-		})
+		out = append(out, messageOutputFromTGMessage(b.cli, message))
 	}
 	return out
+}
+
+func imageCaptionOptions(caption string) []message.StyledTextOption {
+	caption = strings.TrimSpace(caption)
+	if caption == "" {
+		return nil
+	}
+	return []message.StyledTextOption{styling.Plain(caption)}
 }
 
 func (b *UserBackend) GetContacts(ctx context.Context) ([]ContactOutput, error) {

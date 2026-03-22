@@ -33,3 +33,9 @@ func TestParseInteractiveUIModeValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestIsCLICommandIncludesSendImage(t *testing.T) {
+	if !isCLICommand("send-image") {
+		t.Fatalf("expected send-image to be recognized as a CLI command")
+	}
+}

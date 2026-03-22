@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 )
 
 const (
@@ -19,6 +18,7 @@ type legacyTranscriptEntry struct {
 	Header    string
 	Body      string
 	Meta      string
+	Image     *ImageAttachment
 }
 
 var legacyTranscriptMessageLoader = func(ctx context.Context, cli *TelegramCLI, target string, limit int) ([]MessageOutput, error) {
@@ -127,7 +127,11 @@ func mergeLegacyEntrySlices(primary []legacyTranscriptEntry, secondary []legacyT
 }
 
 func legacyEntryKey(entry legacyTranscriptEntry) string {
-	return fmt.Sprintf("%t|%s|%s|%s", entry.Outgoing, strings.TrimSpace(entry.Header), strings.TrimSpace(entry.Body), strings.TrimSpace(entry.Meta))
+	imageKey := ""
+	if entry.Image != nil {
+		imageKey = strings.TrimSpace(entry.Image.Kind) + "|" + strings.TrimSpace(entry.Image.Name) + "|" + strings.TrimSpace(entry.Image.MIMEType)
+	}
+	return fmt.Sprintf("%t|%s|%s|%s|%s", entry.Outgoing, strings.TrimSpace(entry.Header), strings.TrimSpace(entry.Body), strings.TrimSpace(entry.Meta), imageKey)
 }
 
 func (cli *TelegramCLI) ensureLegacyTranscript(ctx context.Context, target string, label string) error {
@@ -160,23 +164,7 @@ func (cli *TelegramCLI) ensureLegacyTranscriptContext(ctx context.Context, targe
 func legacyEntriesFromMessages(target string, label string, messages []MessageOutput) []legacyTranscriptEntry {
 	entries := make([]legacyTranscriptEntry, 0, len(messages))
 	for i := len(messages) - 1; i >= 0; i-- {
-		msg := messages[i]
-		timestamp := time.Unix(msg.Date, 0).Format("15:04:05")
-
-		entry := legacyTranscriptEntry{
-			MessageID: msg.ID,
-			Outgoing:  msg.Outgoing,
-			Body:      msg.Message,
-		}
-
-		if msg.Outgoing {
-			entry.Header = outgoingTranscriptHeader(label, target, false)
-			entry.Meta = outgoingTranscriptMeta(timestamp)
-		} else {
-			entry.Header = incomingTranscriptHeader(msg.FromName, target, false)
-			entry.Meta = incomingTranscriptMeta(timestamp)
-		}
-		entries = append(entries, entry)
+		entries = append(entries, legacyTranscriptEntryFromMessageOutput(target, label, messages[i]))
 	}
 	return entries
 }

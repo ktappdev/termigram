@@ -304,6 +304,43 @@ func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text str
 	printTranscriptMessage(true, entry.Header, entry.Body, entry.Meta)
 }
 
+func (cli *TelegramCLI) sendImage(ctx context.Context, target string, label string, source string, caption string) error {
+	backend := &UserBackend{cli: cli}
+	prepared, err := prepareImageSource(ctx, source)
+	if err != nil {
+		return err
+	}
+	defer prepared.Cleanup()
+
+	if err := backend.sendPreparedImage(ctx, target, prepared, caption); err != nil {
+		return err
+	}
+
+	attachment := &ImageAttachment{
+		Kind:     imageKind,
+		Name:     prepared.Name,
+		MIMEType: prepared.MIMEType,
+	}
+	if prepared.Persistent {
+		attachment.CachedPath = prepared.Path
+	}
+	cli.recordOutgoingImage(target, label, attachment, caption)
+	if interactiveTTYAvailable() {
+		cli.redrawLegacyChatView()
+		return nil
+	}
+
+	entry := legacyTranscriptEntry{
+		Outgoing: true,
+		Header:   outgoingTranscriptHeader(label, target, false),
+		Body:     imagePlaceholderBody(0, prepared.Name, caption),
+		Meta:     outgoingTranscriptMeta(time.Now().Format("15:04:05")),
+		Image:    attachment,
+	}
+	printTranscriptMessage(true, entry.Header, entry.Body, entry.Meta)
+	return nil
+}
+
 func (cli *TelegramCLI) shouldPrintIncoming(msg *tg.Message, fromTarget string) bool {
 	key := fmt.Sprintf("%d:%d:%s", msg.ID, msg.Date, normalizeUsername(fromTarget))
 	now := time.Now()
@@ -356,12 +393,14 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 		return
 	}
 
-	if msg.Message == "" {
+	attachment, _ := imageAttachmentFromMessage(msg)
+	body := messageBodyText(int64(msg.ID), msg.Message, attachment)
+	if strings.TrimSpace(body) == "" {
 		return
 	}
 
 	msgTime := time.Unix(int64(msg.Date), 0)
-	cli.markChatActivity(fromTarget, msg.Message, msgTime)
+	cli.markChatActivity(fromTarget, messagePreviewText(msg.Message, attachment), msgTime)
 	activeTarget, activeLabel := cli.currentChat()
 	incomingTarget := normalizeUsername(fromTarget)
 	mismatch := activeTarget == "" || normalizeUsername(activeTarget) != incomingTarget
@@ -375,11 +414,11 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 		MessageID: int64(msg.ID),
 		Outgoing:  false,
 		Header:    incomingTranscriptHeader(fromName, fromTarget, mismatch),
-		Body:      msg.Message,
+		Body:      body,
 		Meta:      incomingTranscriptMeta(msgTime.Format("15:04:05")),
+		Image:     attachment,
 	}
 	cli.appendLegacyTranscriptEntry(fromTarget, entry)
-
 
 	if !mismatch && cli.currentLegacyConsole() != nil {
 		cli.redrawLegacyChatView()

@@ -20,6 +20,8 @@ func printHelp() {
 	fmt.Println("  \\contacts           Browse contacts by page and switch on selection")
 	fmt.Println("  \\find <query>       Find cached chats/usernames and switch via selector")
 	fmt.Println("  \\msg <id|@user> <text>  Send message and enter chat mode")
+	fmt.Println("  \\image <source> [caption]  Send an image into the active chat")
+	fmt.Println("  \\openimage [id|last]  Download/open an image from the active chat")
 	fmt.Println("  \\to <id|@user>      Switch active chat")
 	fmt.Println("  \\here               Show active chat")
 	fmt.Println("  \\chats              Interactive recent chats picker (↑/↓, Enter, Esc, filter)")
@@ -244,7 +246,14 @@ func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 			continue
 		}
 
-		parts := strings.Fields(input)
+		parts, splitErr := splitCommandTokens(input)
+		if splitErr != nil {
+			fmt.Printf("%s %v\n", yellow("Error parsing command:"), splitErr)
+			continue
+		}
+		if len(parts) == 0 {
+			continue
+		}
 		cmd := strings.ToLower(parts[0])
 
 		switch cmd {
@@ -294,6 +303,38 @@ func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 			} else {
 				cli.sendMessage(ctx, target, msgText)
 			}
+		case "\\image":
+			if len(parts) < 2 {
+				fmt.Println(yellow("Usage:"), "\\image <source> [caption]")
+				continue
+			}
+			target, label := cli.currentChat()
+			if target == "" {
+				fmt.Println(yellow("No active chat."), "Use \\to or \\msg first, then run \\image <source> [caption].")
+				continue
+			}
+			caption := ""
+			if len(parts) > 2 {
+				caption = strings.Join(parts[2:], " ")
+			}
+			if err := cli.sendImage(ctx, target, label, parts[1], caption); err != nil {
+				fmt.Printf("%s %v\n", red("Error sending image:"), err)
+			}
+		case "\\openimage":
+			selector := "last"
+			if len(parts) > 2 {
+				fmt.Println(yellow("Usage:"), "\\openimage [message-id|last]")
+				continue
+			}
+			if len(parts) == 2 {
+				selector = parts[1]
+			}
+			path, err := cli.openImageFromCurrentChat(ctx, selector)
+			if err != nil {
+				fmt.Printf("%s %v\n", red("Error opening image:"), err)
+				continue
+			}
+			fmt.Printf("%s %s\n", dim("Opened image:"), path)
 		case "\\to":
 			if len(parts) < 2 {
 				fmt.Println(yellow("Usage:"), "\\to <id|@user>")

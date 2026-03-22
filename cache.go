@@ -73,6 +73,24 @@ func (cli *TelegramCLI) markChatActivity(target string, message string, at time.
 	}
 }
 
+func (cli *TelegramCLI) updateLegacyImageCachePath(target string, messageID int64, path string) {
+	normalized := normalizeLegacyTranscriptTarget(target)
+	if normalized == "" || messageID == 0 || strings.TrimSpace(path) == "" {
+		return
+	}
+
+	cli.legacyMu.Lock()
+	defer cli.legacyMu.Unlock()
+
+	entries := cli.legacyTranscripts[normalized]
+	for i := range entries {
+		if entries[i].MessageID == messageID && entries[i].Image != nil {
+			entries[i].Image.CachedPath = path
+		}
+	}
+	cli.legacyTranscripts[normalized] = entries
+}
+
 func (cli *TelegramCLI) setChatUnreadCount(target string, unreadCount int) {
 	normalized := normalizeUsername(target)
 	if normalized == "" {

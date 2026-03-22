@@ -28,6 +28,14 @@ Send a message to a user id or `@username`.
 ./termigram send --json @ken "Hello from automation"
 ```
 
+### `send-image`
+
+Send a JPG/PNG/WEBP image from a local path, file URL, or HTTP/HTTPS URL.
+
+```bash
+./termigram send-image --json @ken ./meme.png "hello"
+```
+
 ### `get`
 
 Fetch recent messages for a target.
@@ -75,6 +83,7 @@ Find usernames by cached prefix.
 
 ```bash
 ./termigram send --json @oncall "Job failed: nightly-import"
+./termigram send-image --json @ken ./meme.png "hello"
 ```
 
 ### Fetch and parse recent messages
@@ -98,6 +107,8 @@ When termigram is running interactively, these commands are available:
 - `\find <prefix>`
 - `\msg <id|@username> <text>`
 - `\to <id|@username>`
+- `\image <source> [caption]`
+- `\openimage [message-id|last]`
 - `\chats`
 - `\here`
 - `\close`
@@ -117,6 +128,7 @@ Per-command help:
 
 ```bash
 ./termigram send --help
+./termigram send-image --help
 ./termigram get --help
 ./termigram contacts --help
 ./termigram me --help

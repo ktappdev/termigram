@@ -181,7 +181,7 @@ func runCLIMode(cfg Config, argv []string, rootMode string) {
 
 func isCLICommand(name string) bool {
 	switch name {
-	case "send", "get", "contacts", "me", "find":
+	case "send", "send-image", "get", "contacts", "me", "find":
 		return true
 	default:
 		return false
@@ -207,6 +207,7 @@ Usage:
 
 One-shot commands:
   send [--json] [--timeout 30s] <user_id|@username> <message>
+  send-image [--json] [--timeout 30s] <user_id|@username> <source> [caption]
   get [--json] [--timeout 30s] [--limit N] <user_id|@username>
   contacts [--json] [--timeout 30s] [--limit N] [--offset N]
   me [--json] [--timeout 30s]
@@ -215,6 +216,7 @@ One-shot commands:
 Examples:
   ./termigram
   ./termigram send @ken "Hello"
+  ./termigram send-image @ken ./photo.png "status update"
   ./termigram get --json --limit 20 @ken
   ./termigram contacts --json
   ./termigram send --help
@@ -236,9 +238,18 @@ func printCommandHelp(command string) {
 Usage:
   ./termigram send [--json] [--timeout 30s] <user_id|@username> <message>
 
-Examples:
+	Examples:
   ./termigram send @ken "Hello from script"
   ./termigram send --json 123456789 "Hello"`)
+	case "send-image":
+		fmt.Println(`send-image - send an image to a user
+
+Usage:
+  ./termigram send-image [--json] [--timeout 30s] <user_id|@username> <source> [caption]
+
+Examples:
+  ./termigram send-image @ken ./photo.png
+  ./termigram send-image @ken "https://example.com/meme.jpg" "look at this"`)
 	case "get":
 		fmt.Println(`get - fetch recent messages from a user
 
