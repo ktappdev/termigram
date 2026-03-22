@@ -127,59 +127,74 @@ func (cfg inlineImageConfig) enabled() bool {
 	return cfg.Protocol != inlineImageProtocolNone && cfg.Cols > 0 && cfg.MaxRows > 0
 }
 
-func (cli *TelegramCLI) renderInlineImagePreview(target string, entries []legacyTranscriptEntry, width int, totalHeight int) (string, int) {
-	cfg := currentInlineImageConfig()
-	if !cfg.enabled() || width < 20 || totalHeight < inlineImageMinPaneRows+6 {
-		return "", 0
+func inlineImageColsForWidth(width int, cfg inlineImageConfig) int {
+	if width <= 0 {
+		return cfg.Cols
 	}
 
-	entry, ok := latestImageEntry(entries)
-	if !ok || entry == nil || entry.Image == nil {
-		return "", 0
+	maxCols := transcriptBubbleWidth(width) - 2
+	if maxCols < 8 {
+		maxCols = 8
 	}
-
-	path, err := cli.ensureImageDownloaded(ensureContext(cli.ctx), target, *entry)
-	if err != nil || !fileExists(path) {
-		return "", 0
+	if cfg.Cols < maxCols {
+		maxCols = cfg.Cols
 	}
-
-	preview, err := ensureInlinePreviewImage(target, *entry, path, cfg)
-	if err != nil {
-		return "", 0
+	if maxCols > width {
+		maxCols = width
 	}
-
-	name := preview.Name
-	if strings.TrimSpace(name) == "" {
-		name = "image"
-	}
-	title := dim(truncateVisibleWidth("Image preview: "+name, width))
-	separator := dim(strings.Repeat("─", maxInt(width, 1)))
-	body, err := renderInlineImageSequence(preview, cfg.Protocol)
-	if err != nil {
-		return "", 0
-	}
-
-	return separator + "\n" + title + "\n" + body, preview.Rows + 2
+	return maxCols
 }
 
-func ensureInlinePreviewImage(target string, entry legacyTranscriptEntry, sourcePath string, cfg inlineImageConfig) (inlinePreviewImage, error) {
-	path := filepath.Join(previewCacheDirPath(), cachedInlinePreviewFilename(target, entry))
-	rows := cfg.MaxRows
+func (cli *TelegramCLI) renderInlineImageBlock(target string, entry legacyTranscriptEntry, width int, cfg inlineImageConfig) (string, int, bool) {
+	if entry.Image == nil {
+		return "", 0, false
+	}
+
+	cols := inlineImageColsForWidth(width, cfg)
+	if cols <= 0 {
+		return "", 0, false
+	}
+
+	path, err := cli.ensureImageDownloaded(ensureContext(cli.ctx), target, entry)
+	if err != nil || !fileExists(path) {
+		return "", 0, false
+	}
+
+	preview, err := ensureInlinePreviewImage(target, entry, path, cols, cfg.MaxRows)
+	if err != nil {
+		return "", 0, false
+	}
+
+	sequence, err := renderInlineImageSequence(preview, cfg.Protocol)
+	if err != nil {
+		return "", 0, false
+	}
+
+	indent := 0
+	if entry.Outgoing && width > preview.Cols {
+		indent = width - preview.Cols
+	}
+	return strings.Repeat(" ", maxInt(indent, 0)) + sequence, preview.Rows, true
+}
+
+func ensureInlinePreviewImage(target string, entry legacyTranscriptEntry, sourcePath string, cols int, maxRows int) (inlinePreviewImage, error) {
+	path := filepath.Join(previewCacheDirPath(), cachedInlinePreviewFilename(target, entry, cols, maxRows))
+	rows := maxRows
 
 	if fileExists(path) {
 		width, height, err := decodeImageSize(path)
 		if err == nil {
-			rows = calculateInlinePreviewRows(width, height, cfg.Cols, cfg.MaxRows)
+			rows = calculateInlinePreviewRows(width, height, cols, maxRows)
 		}
 		return inlinePreviewImage{
 			Path: path,
-			Cols: cfg.Cols,
+			Cols: cols,
 			Rows: rows,
 			Name: inlinePreviewName(entry),
 		}, nil
 	}
 
-	data, rows, err := buildInlinePreviewPNG(sourcePath, cfg)
+	data, rows, err := buildInlinePreviewPNG(sourcePath, cols, maxRows)
 	if err != nil {
 		return inlinePreviewImage{}, err
 	}
@@ -189,7 +204,7 @@ func ensureInlinePreviewImage(target string, entry legacyTranscriptEntry, source
 
 	return inlinePreviewImage{
 		Path: path,
-		Cols: cfg.Cols,
+		Cols: cols,
 		Rows: rows,
 		Name: inlinePreviewName(entry),
 	}, nil
@@ -204,11 +219,11 @@ func previewCacheDirPath() string {
 	return dir
 }
 
-func cachedInlinePreviewFilename(target string, entry legacyTranscriptEntry) string {
+func cachedInlinePreviewFilename(target string, entry legacyTranscriptEntry, cols int, maxRows int) string {
 	name := cachedImageFilename(target, entry)
 	ext := filepath.Ext(name)
 	base := strings.TrimSuffix(name, ext)
-	return base + "-inline-preview.png"
+	return fmt.Sprintf("%s-inline-%dx%d-preview.png", base, cols, maxRows)
 }
 
 func inlinePreviewName(entry legacyTranscriptEntry) string {
@@ -218,18 +233,18 @@ func inlinePreviewName(entry legacyTranscriptEntry) string {
 	return "image"
 }
 
-func buildInlinePreviewPNG(sourcePath string, cfg inlineImageConfig) ([]byte, int, error) {
+func buildInlinePreviewPNG(sourcePath string, cols int, maxRows int) ([]byte, int, error) {
 	src, err := decodeImageFile(sourcePath)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	maxWidth := maxInt(cfg.Cols*inlineImagePixelWidth, 64)
-	maxHeight := maxInt(cfg.MaxRows*inlineImagePixelHeight, 64)
+	maxWidth := maxInt(cols*inlineImagePixelWidth, 64)
+	maxHeight := maxInt(maxRows*inlineImagePixelHeight, 64)
 
 	for attempt := 0; attempt < 5; attempt++ {
 		resized := resizeImageToFit(src, maxWidth, maxHeight)
-		rows := calculateInlinePreviewRows(resized.Bounds().Dx(), resized.Bounds().Dy(), cfg.Cols, cfg.MaxRows)
+		rows := calculateInlinePreviewRows(resized.Bounds().Dx(), resized.Bounds().Dy(), cols, maxRows)
 
 		var buf bytes.Buffer
 		if err := png.Encode(&buf, resized); err != nil {

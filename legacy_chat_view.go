@@ -24,18 +24,7 @@ func (cli *TelegramCLI) redrawLegacyChatView() {
 
 	width, height := currentLegacyTerminalSize()
 	entries, _ := cli.legacyTranscriptSnapshot(target)
-	previewBlock, previewRows := cli.renderInlineImagePreview(target, entries, width, height)
-	if previewRows > 0 && height-previewRows >= inlineImageMinPaneRows {
-		height -= previewRows
-	} else {
-		previewBlock = ""
-		previewRows = 0
-	}
-
-	view := renderLegacyChatView(label, target, entries, width, height)
-	if previewBlock != "" {
-		view += "\n" + previewBlock
-	}
+	view := cli.renderActiveLegacyChatView(label, target, entries, width, height)
 	_ = console.WriteBlock("\033[2J\033[H" + view + "\n")
 }
 
@@ -105,6 +94,19 @@ func renderLegacyChatView(label string, target string, entries []legacyTranscrip
 		rows = append(rows, "")
 	}
 	return strings.Join(rows, "\n")
+}
+
+func (cli *TelegramCLI) renderActiveLegacyChatView(label string, target string, entries []legacyTranscriptEntry, width int, height int) string {
+	cfg := currentInlineImageConfig()
+	if !cfg.enabled() {
+		return renderLegacyChatView(label, target, entries, width, height)
+	}
+
+	view, ok := cli.renderLegacyChatViewWithInlineImages(label, target, entries, width, height, cfg)
+	if !ok {
+		return renderLegacyChatView(label, target, entries, width, height)
+	}
+	return view
 }
 
 func truncateVisibleWidth(text string, width int) string {

@@ -120,7 +120,7 @@ Interactive image tips:
 - `\openimage` opens the recent-image picker for the active chat
 - `\openimage last` opens the newest image immediately
 - `\openimage meme` opens the picker pre-filtered by `meme`
-- supported terminals can auto-preview the latest image inline in the active chat
+- supported terminals can render visible chat images inline in the transcript flow
 
 Inline preview environment variables:
 

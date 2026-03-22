@@ -28,7 +28,7 @@ func printInteractiveStartup() {
 	fmt.Println("  \\image ./meme.png   send an image into the active chat")
 	fmt.Println("  \\openimage          pick from recent images in the active chat")
 	fmt.Println("  \\openimage last     open the newest image fast")
-	fmt.Println("  inline preview      auto-shows latest image in kitty/iTerm2 when supported")
+	fmt.Println("  inline preview      shows visible chat images inline in kitty/iTerm2 when supported")
 	fmt.Println("  \\help               show the full command list")
 	fmt.Println()
 }

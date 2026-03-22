@@ -118,7 +118,7 @@ Interactive chat flow:
 - `\openimage` opens an image picker for the active chat
 - `\openimage last` opens the newest image in the active chat
 - `\openimage [message-id|query]` opens a specific image id or starts the picker filtered by your query
-- supported terminals can auto-preview the latest image inline in the active chat
+- supported terminals can render visible chat images inline in the transcript flow
 - `\chats` opens the recent chats picker
 - `\unread` opens chats with unread messages
 - typing plain text sends to the active chat
@@ -126,7 +126,7 @@ Interactive chat flow:
 
 ### Inline image preview
 
-When the terminal supports it, termigram can render the latest image in the active chat inline.
+When the terminal supports it, termigram can render visible chat images inline in the transcript flow.
 
 Current auto-detected protocols:
 

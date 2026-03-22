@@ -58,7 +58,7 @@ Highlighted capabilities:
 - unread chat picking
 - image sending from local paths, file URLs, and HTTP/HTTPS URLs
 - recent-image picker for `\openimage`
-- inline preview of the latest active-chat image on supported terminals (kitty/iTerm2)
+- inline preview of visible active-chat images on supported terminals (kitty/iTerm2)
 - active-chat transcript redraw on resize
 - message bubbles for incoming and outgoing text
 - adaptive terminal rendering for narrower widths
