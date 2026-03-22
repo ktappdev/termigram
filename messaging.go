@@ -13,6 +13,10 @@ import (
 	"golang.org/x/term"
 )
 
+var sendPreparedImageWithBackend = func(ctx context.Context, backend *UserBackend, target string, prepared preparedImageSource, caption string) error {
+	return backend.sendPreparedImage(ctx, target, prepared, caption)
+}
+
 type transcriptTheme struct {
 	border func(string) string
 	fill   func(string) string
@@ -312,7 +316,7 @@ func (cli *TelegramCLI) sendImage(ctx context.Context, target string, label stri
 	}
 	defer prepared.Cleanup()
 
-	if err := backend.sendPreparedImage(ctx, target, prepared, caption); err != nil {
+	if err := sendPreparedImageWithBackend(ctx, backend, target, prepared, caption); err != nil {
 		return err
 	}
 
@@ -321,8 +325,15 @@ func (cli *TelegramCLI) sendImage(ctx context.Context, target string, label stri
 		Name:     prepared.Name,
 		MIMEType: prepared.MIMEType,
 	}
-	if prepared.Persistent {
-		attachment.CachedPath = prepared.Path
+	cachedPath := prepared.Path
+	if !prepared.Persistent {
+		cachedPath, err = cacheOutboundImageFunc(target, attachment, prepared.Path)
+		if err != nil {
+			return err
+		}
+	}
+	if cachedPath != "" {
+		attachment.CachedPath = cachedPath
 	}
 	cli.recordOutgoingImage(target, label, attachment, caption)
 	if interactiveTTYAvailable() {

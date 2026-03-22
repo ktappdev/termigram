@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/gif"
 	"image/png"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -91,6 +92,18 @@ func TestPrepareRemoteImageSourceDownloadsPNG(t *testing.T) {
 	}
 	if _, err := os.Stat(prepared.Path); err != nil {
 		t.Fatalf("expected downloaded file to exist: %v", err)
+	}
+}
+
+func TestPrepareRemoteImageSourceRejectsLyingImageHeader(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = io.WriteString(w, "<html>not really an image</html>")
+	}))
+	defer server.Close()
+
+	if _, err := prepareImageSource(context.Background(), server.URL+"/fake.png"); err == nil {
+		t.Fatalf("expected non-image body to be rejected even with image/png header")
 	}
 }
 

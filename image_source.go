@@ -233,11 +233,7 @@ func inspectImageFile(path string, headerType string) (mimeType string, sendAsFi
 
 	detectedType := http.DetectContentType(header[:n])
 	if !isSupportedImageMIME(detectedType) {
-		candidate := strings.ToLower(strings.TrimSpace(headerType))
-		if !isSupportedImageMIME(candidate) {
-			return "", false, "", fmt.Errorf("unsupported image format (supported: jpg, png, webp)")
-		}
-		detectedType = candidate
+		return "", false, "", fmt.Errorf("unsupported image format (supported: jpg, png, webp)")
 	}
 
 	name = filepath.Base(path)

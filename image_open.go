@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 
 var imageDownloadFunc = downloadImageAttachment
 var openLocalPath = defaultOpenLocalPath
+var cacheOutboundImageFunc = cacheOutboundImageCopy
 
 func (cli *TelegramCLI) ensureImageDownloaded(ctx context.Context, target string, entry legacyTranscriptEntry) (string, error) {
 	if entry.Image == nil {
@@ -132,4 +134,36 @@ func parseMessageID(raw string) (int64, error) {
 		return 0, fmt.Errorf("invalid message id %q", raw)
 	}
 	return id, nil
+}
+
+func cacheOutboundImageCopy(target string, attachment *ImageAttachment, sourcePath string) (string, error) {
+	if attachment == nil {
+		return "", fmt.Errorf("image attachment is required")
+	}
+	dir, err := mediaCacheDir()
+	if err != nil {
+		return "", err
+	}
+	entry := legacyTranscriptEntry{
+		Image: attachment,
+	}
+	filename := cachedImageFilename(target, entry)
+	path := filepath.Join(dir, filename)
+
+	src, err := os.Open(filepath.Clean(sourcePath))
+	if err != nil {
+		return "", fmt.Errorf("open outbound image cache source: %w", err)
+	}
+	defer src.Close()
+
+	dst, err := os.Create(path)
+	if err != nil {
+		return "", fmt.Errorf("create outbound image cache file: %w", err)
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		return "", fmt.Errorf("cache outbound image: %w", err)
+	}
+	return path, nil
 }
