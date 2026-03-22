@@ -108,7 +108,7 @@ When termigram is running interactively, these commands are available:
 - `\msg <id|@username> <text>`
 - `\to <id|@username>`
 - `\image <source> [caption]`
-- `\openimage [message-id|last]`
+- `\openimage [last|message-id|query]`
 - `\chats`
 - `\here`
 - `\close`

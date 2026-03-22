@@ -21,7 +21,7 @@ func printHelp() {
 	fmt.Println("  \\find <query>       Find cached chats/usernames and switch via selector")
 	fmt.Println("  \\msg <id|@user> <text>  Send message and enter chat mode")
 	fmt.Println("  \\image <source> [caption]  Send an image into the active chat")
-	fmt.Println("  \\openimage [id|last]  Download/open an image from the active chat")
+	fmt.Println("  \\openimage [last|message-id|query]  Open/pick an image from the active chat")
 	fmt.Println("  \\to <id|@user>      Switch active chat")
 	fmt.Println("  \\here               Show active chat")
 	fmt.Println("  \\chats              Interactive recent chats picker (↑/↓, Enter, Esc, filter)")
@@ -323,14 +323,20 @@ func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 		case "\\openimage":
 			selector := "last"
 			if len(parts) > 2 {
-				fmt.Println(yellow("Usage:"), "\\openimage [message-id|last]")
+				fmt.Println(yellow("Usage:"), "\\openimage [last|message-id|query]")
 				continue
 			}
-			if len(parts) == 2 {
+			if len(parts) == 1 {
+				selector = ""
+			} else if len(parts) == 2 {
 				selector = parts[1]
 			}
 			path, err := cli.openImageFromCurrentChat(ctx, selector)
 			if err != nil {
+				if errors.Is(err, errImagePickerCancelled) {
+					fmt.Println(dim("Image open cancelled."))
+					continue
+				}
 				fmt.Printf("%s %v\n", red("Error opening image:"), err)
 				continue
 			}

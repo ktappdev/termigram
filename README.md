@@ -43,7 +43,7 @@ Default interactive mode uses the command/transcript workflow. Open a chat with 
 - `\msg <id|@username> <text>`
 - `\to <id|@username>`
 - `\image <source> [caption]`
-- `\openimage [message-id|last]`
+- `\openimage [last|message-id|query]`
 - `\chats`
 - `\unread`
 - `\here`
@@ -115,7 +115,9 @@ Interactive chat flow:
 - `\msg <id|@user> <text>` sends a message and enters that chat
 - `\to <id|@user>` switches the active chat
 - `\image <source> [caption]` sends a JPG/PNG/WEBP image into the active chat
-- `\openimage [message-id|last]` downloads and opens an image from the active chat
+- `\openimage` opens an image picker for the active chat
+- `\openimage last` opens the newest image in the active chat
+- `\openimage [message-id|query]` opens a specific image id or starts the picker filtered by your query
 - `\chats` opens the recent chats picker
 - `\unread` opens chats with unread messages
 - typing plain text sends to the active chat

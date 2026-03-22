@@ -214,19 +214,46 @@ func (cli *TelegramCLI) openImageFromCurrentChat(ctx context.Context, selector s
 
 	selector = strings.TrimSpace(selector)
 	switch {
-	case selector == "", strings.EqualFold(selector, "last"):
+	case selector == "":
+		result := cli.pickImageEntry("Open image", "", entries)
+		switch {
+		case !result.Interactive:
+			entry, ok = latestImageEntry(entries)
+			if !ok {
+				return "", fmt.Errorf("no image messages found in the active chat")
+			}
+		case result.Cancelled:
+			return "", errImagePickerCancelled
+		case result.Chosen == nil:
+			return "", fmt.Errorf("no image messages found in the active chat")
+		default:
+			entry = result.Chosen
+		}
+	case strings.EqualFold(selector, "last"):
 		entry, ok = latestImageEntry(entries)
 		if !ok {
 			return "", fmt.Errorf("no image messages found in the active chat")
 		}
 	default:
 		messageID, err := parseMessageID(selector)
-		if err != nil {
-			return "", err
+		if err == nil {
+			entry, ok = findImageEntryByID(entries, messageID)
+			if !ok {
+				return "", fmt.Errorf("image message %d not found in the active chat transcript", messageID)
+			}
+			break
 		}
-		entry, ok = findImageEntryByID(entries, messageID)
-		if !ok {
-			return "", fmt.Errorf("image message %d not found in the active chat transcript", messageID)
+
+		result := cli.pickImageEntry("Open image", selector, entries)
+		switch {
+		case !result.Interactive:
+			return "", fmt.Errorf("image picker requires an interactive terminal; use \\openimage last")
+		case result.Cancelled:
+			return "", errImagePickerCancelled
+		case result.Chosen == nil:
+			return "", fmt.Errorf("no image messages match %q in the active chat", selector)
+		default:
+			entry = result.Chosen
 		}
 	}
 
