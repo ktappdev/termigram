@@ -39,6 +39,10 @@ func cyan(text string) string   { return colorize(ansiCyan, text) }
 func (cli *TelegramCLI) setCurrentChat(target string, label string) {
 	cli.mu.Lock()
 	defer cli.mu.Unlock()
+	if normalizeReplyTarget(cli.currentChatTarget) != normalizeReplyTarget(target) {
+		cli.pendingReply = nil
+		cli.pendingReplyTarget = ""
+	}
 	cli.currentChatTarget = target
 	cli.currentChatLabel = label
 }

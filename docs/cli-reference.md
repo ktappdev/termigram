@@ -33,7 +33,7 @@ Send a message to a user id or `@username`.
 Send a JPG/PNG/WEBP image from a local path, file URL, or HTTP/HTTPS URL.
 
 ```bash
-./termigram send-image --json @ken ./meme.png "hello"
+./termigram send-image --json --reply-to 123 @ken ./meme.png "hello"
 ```
 
 ### `get`
@@ -107,6 +107,8 @@ When termigram is running interactively, these commands are available:
 - `\find <prefix>`
 - `\msg <id|@username> <text>`
 - `\to <id|@username>`
+- `\reply [message-id|query]`
+- `\cancelreply`
 - `\image <source> [caption]`
 - `\openimage [last|message-id|query]`
 - `\chats`
@@ -115,7 +117,10 @@ When termigram is running interactively, these commands are available:
 - `\help`
 - `\quit`
 
-Interactive image tips:
+Interactive reply + image tips:
+
+- `\reply` opens the recent-message picker for the active chat and arms the next plain message or `\image` as a reply
+- `\cancelreply` clears the pending reply target
 
 - `\openimage` opens the recent-image picker for the active chat
 - `\openimage last` opens the newest image immediately

@@ -132,6 +132,7 @@ func runCLIMode(cfg Config, argv []string, rootMode string) {
 	offsetFlag := fs.Int("offset", 0, "Offset for contacts command")
 	timeoutFlag := fs.Duration("timeout", 30*time.Second, "Request timeout")
 	modeFlag := fs.String("mode", "", "Auth mode: user (default: user)")
+	replyToFlag := fs.Int64("reply-to", 0, "Reply to a specific Telegram message ID (send/send-image)")
 
 	fs.Parse(args)
 	positionalArgs := fs.Args()
@@ -158,12 +159,13 @@ func runCLIMode(cfg Config, argv []string, rootMode string) {
 	_ = selectedMode // Only user mode is supported
 
 	cmd := CLICommand{
-		Name:    command,
-		Args:    positionalArgs,
-		JSON:    *jsonFlag,
-		Limit:   limit,
-		Offset:  *offsetFlag,
-		Timeout: *timeoutFlag,
+		Name:             command,
+		Args:             positionalArgs,
+		JSON:             *jsonFlag,
+		Limit:            limit,
+		Offset:           *offsetFlag,
+		Timeout:          *timeoutFlag,
+		ReplyToMessageID: *replyToFlag,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), *timeoutFlag)
@@ -206,8 +208,8 @@ Usage:
   ./termigram <command> [options]                      # one-shot mode
 
 One-shot commands:
-  send [--json] [--timeout 30s] <user_id|@username> <message>
-  send-image [--json] [--timeout 30s] <user_id|@username> <source> [caption]
+  send [--json] [--timeout 30s] [--reply-to N] <user_id|@username> <message>
+  send-image [--json] [--timeout 30s] [--reply-to N] <user_id|@username> <source> [caption]
   get [--json] [--timeout 30s] [--limit N] <user_id|@username>
   contacts [--json] [--timeout 30s] [--limit N] [--offset N]
   me [--json] [--timeout 30s]
@@ -216,13 +218,16 @@ One-shot commands:
 Examples:
   ./termigram
   ./termigram send @ken "Hello"
-  ./termigram send-image @ken ./photo.png "status update"
+  ./termigram send --reply-to 123 @ken "On it"
+  ./termigram send-image --reply-to 123 @ken ./photo.png "status update"
   ./termigram get --json --limit 20 @ken
   ./termigram contacts --json
   ./termigram send --help
 
 Interactive quick start:
   \to @user           switch chats
+  \reply              pick a recent message to reply to
+  \cancelreply       clear the pending reply target
   \image ./meme.png   send an image into the active chat
   \openimage          pick from recent images in the active chat
   \openimage last     open the newest image fast
@@ -250,16 +255,17 @@ func printCommandHelp(command string) {
 		fmt.Println(`send - send a message to a user
 
 Usage:
-  ./termigram send [--json] [--timeout 30s] <user_id|@username> <message>
+  ./termigram send [--json] [--timeout 30s] [--reply-to N] <user_id|@username> <message>
 
-	Examples:
+Examples:
   ./termigram send @ken "Hello from script"
+  ./termigram send --reply-to 123 @ken "Following up"
   ./termigram send --json 123456789 "Hello"`)
 	case "send-image":
 		fmt.Println(`send-image - send an image to a user
 
 Usage:
-  ./termigram send-image [--json] [--timeout 30s] <user_id|@username> <source> [caption]
+  ./termigram send-image [--json] [--timeout 30s] [--reply-to N] <user_id|@username> <source> [caption]
 
 Supported sources:
   - local path (including dragged file paths)
@@ -273,6 +279,7 @@ Supported formats:
 
 Examples:
   ./termigram send-image @ken ./photo.png
+  ./termigram send-image --reply-to 123 @ken ./photo.png "look at this"
   ./termigram send-image @ken "https://example.com/meme.jpg" "look at this"`)
 	case "get":
 		fmt.Println(`get - fetch recent messages from a user

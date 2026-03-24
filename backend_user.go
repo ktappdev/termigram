@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gotd/td/telegram/message"
-	"github.com/gotd/td/telegram/message/peer"
 	"github.com/gotd/td/telegram/message/styling"
 	"github.com/gotd/td/tg"
 )
@@ -73,36 +72,27 @@ func (b *UserBackend) GetSelf(ctx context.Context) (*UserOutput, error) {
 	}, nil
 }
 
-func (b *UserBackend) SendMessage(ctx context.Context, target string, text string) error {
-	if b.cli.api == nil {
-		return fmt.Errorf("user backend is not initialized")
-	}
-
-	user, err := b.cli.findUserByIDOrUsername(ctx, target)
-	if err != nil {
-		return err
-	}
-
-	resolver := peer.DefaultResolver(b.cli.api)
-	inputPeer, err := resolver.ResolveDomain(ctx, fmt.Sprintf("user#%d", user.ID))
-	if err != nil {
-		inputPeer = &tg.InputPeerUser{UserID: user.ID, AccessHash: user.AccessHash}
-	}
-
-	req := &tg.MessagesSendMessageRequest{
-		Peer:     inputPeer,
-		Message:  text,
-		RandomID: int64(uint32(user.ID))<<32 | int64(uint32(len(text))),
-	}
-
-	if _, err := b.cli.api.MessagesSendMessage(ctx, req); err != nil {
-		return fmt.Errorf("failed to send message: %w", err)
-	}
-
-	return nil
+func (b *UserBackend) SendMessage(ctx context.Context, target string, text string, opts SendOptions) error {
+	_, err := b.sendText(ctx, target, text, opts)
+	return err
 }
 
-func (b *UserBackend) SendImage(ctx context.Context, target string, source string, caption string) error {
+func (b *UserBackend) sendText(ctx context.Context, target string, text string, opts SendOptions) (int64, error) {
+	if b.cli.api == nil || b.cli.sender == nil {
+		return 0, fmt.Errorf("user backend is not initialized")
+	}
+	request := b.cli.sender.Resolve(target)
+	if opts.ReplyToMessageID > 0 {
+		request.Reply(int(opts.ReplyToMessageID))
+	}
+	updates, err := request.Text(ctx, text)
+	if err != nil {
+		return 0, fmt.Errorf("failed to send message: %w", err)
+	}
+	return sentMessageIDFromUpdates(updates), nil
+}
+
+func (b *UserBackend) SendImage(ctx context.Context, target string, source string, caption string, opts SendOptions) error {
 	if b.cli.api == nil || b.cli.sender == nil {
 		return fmt.Errorf("user backend is not initialized")
 	}
@@ -113,23 +103,33 @@ func (b *UserBackend) SendImage(ctx context.Context, target string, source strin
 	}
 	defer prepared.Cleanup()
 
-	return b.sendPreparedImage(ctx, target, prepared, caption)
+	_, err = b.sendPreparedImage(ctx, target, prepared, caption, opts)
+	return err
 }
 
-func (b *UserBackend) sendPreparedImage(ctx context.Context, target string, prepared preparedImageSource, caption string) error {
+func (b *UserBackend) sendPreparedImage(ctx context.Context, target string, prepared preparedImageSource, caption string, opts SendOptions) (int64, error) {
 	request := b.cli.sender.Resolve(target)
+	if opts.ReplyToMessageID > 0 {
+		request.Reply(int(opts.ReplyToMessageID))
+	}
 	captionOptions := imageCaptionOptions(caption)
 
+	var (
+		updates tg.UpdatesClass
+		err     error
+	)
 	if prepared.SendAsFile {
-		if _, err := request.Upload(message.FromPath(prepared.Path)).File(ctx, captionOptions...); err != nil {
-			return fmt.Errorf("failed to send image file: %w", err)
+		updates, err = request.Upload(message.FromPath(prepared.Path)).File(ctx, captionOptions...)
+		if err != nil {
+			return 0, fmt.Errorf("failed to send image file: %w", err)
 		}
 	} else {
-		if _, err := request.Upload(message.FromPath(prepared.Path)).Photo(ctx, captionOptions...); err != nil {
-			return fmt.Errorf("failed to send photo: %w", err)
+		updates, err = request.Upload(message.FromPath(prepared.Path)).Photo(ctx, captionOptions...)
+		if err != nil {
+			return 0, fmt.Errorf("failed to send photo: %w", err)
 		}
 	}
-	return nil
+	return sentMessageIDFromUpdates(updates), nil
 }
 
 func (b *UserBackend) GetMessages(ctx context.Context, target string, limit int) ([]MessageOutput, error) {
@@ -146,34 +146,25 @@ func (b *UserBackend) GetMessages(ctx context.Context, target string, limit int)
 	}
 
 	inputPeer := &tg.InputPeerUser{UserID: user.ID, AccessHash: user.AccessHash}
-	messages, err := b.cli.api.MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{Peer: inputPeer, Limit: limit})
+	response, err := b.cli.api.MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{Peer: inputPeer, Limit: limit})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get messages: %w", err)
 	}
 
-	switch m := messages.(type) {
-	case *tg.MessagesMessages:
-		b.cli.cacheUsersFromClasses(m.GetUsers())
-		return b.messageOutputsFromClasses(m.GetMessages(), limit), nil
-	case *tg.MessagesMessagesSlice:
-		b.cli.cacheUsersFromClasses(m.GetUsers())
-		return b.messageOutputsFromClasses(m.GetMessages(), limit), nil
-	case *tg.MessagesChannelMessages:
-		b.cli.cacheUsersFromClasses(m.GetUsers())
-		return b.messageOutputsFromClasses(m.GetMessages(), limit), nil
-	default:
-		return nil, fmt.Errorf("unsupported messages history response type: %T", messages)
+	users, messageClasses, err := unpackMessagesResponse(response)
+	if err != nil {
+		return nil, err
 	}
+	b.cli.cacheUsersFromClasses(users)
+	return b.messageOutputsFromClasses(ctx, messageClasses, limit), nil
 }
 
-func (b *UserBackend) messageOutputsFromClasses(messages []tg.MessageClass, limit int) []MessageOutput {
+func (b *UserBackend) messageOutputsFromClasses(ctx context.Context, classes []tg.MessageClass, limit int) []MessageOutput {
+	messages := messageClassesToMessages(classes)
+	replyRefs := resolveReplyReferencesForMessages(ctx, b.cli, messages)
 	out := make([]MessageOutput, 0, limit)
-	for _, msg := range messages {
-		message, ok := msg.(*tg.Message)
-		if !ok {
-			continue
-		}
-		out = append(out, messageOutputFromTGMessage(b.cli, message))
+	for _, message := range messages {
+		out = append(out, messageOutputFromTGMessageWithReply(b.cli, message, replyRefs[int64(message.ID)]))
 	}
 	return out
 }
@@ -258,8 +249,4 @@ func (b *UserBackend) CacheUser(user *UserOutput) {
 		Username:  user.Username,
 		Phone:     user.Phone,
 	})
-}
-
-func (b *UserBackend) FindMatchingUsernames(prefix string, limit int) []string {
-	return b.cli.findMatchingUsernames(prefix, limit)
 }

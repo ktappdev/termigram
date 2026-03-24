@@ -17,26 +17,28 @@ import (
 )
 
 type TelegramCLI struct {
-	client            *telegram.Client
-	api               *tg.Client
-	sender            *message.Sender
-	ctx               context.Context
-	cancel            context.CancelFunc
-	reader            *bufio.Reader
-	mu                sync.RWMutex
-	users             map[int64]*tg.User
-	usersByName       map[string]*tg.User // username -> user mapping
-	usernameByUserID  map[int64]string
-	currentChatTarget string
-	currentChatLabel  string
-	chatLastActivity  map[string]time.Time
-	chatLastMessage   map[string]string
-	chatUnreadCount   map[string]int
-	seenIncoming      map[string]time.Time
-	legacyMu          sync.RWMutex
-	legacyConsole     *legacyConsole
-	legacyTranscripts map[string][]legacyTranscriptEntry
-	legacyLoaded      map[string]bool
+	client             *telegram.Client
+	api                *tg.Client
+	sender             *message.Sender
+	ctx                context.Context
+	cancel             context.CancelFunc
+	reader             *bufio.Reader
+	mu                 sync.RWMutex
+	users              map[int64]*tg.User
+	usersByName        map[string]*tg.User // username -> user mapping
+	usernameByUserID   map[int64]string
+	currentChatTarget  string
+	currentChatLabel   string
+	chatLastActivity   map[string]time.Time
+	chatLastMessage    map[string]string
+	chatUnreadCount    map[string]int
+	seenIncoming       map[string]time.Time
+	pendingReply       *ReplyReference
+	pendingReplyTarget string
+	legacyMu           sync.RWMutex
+	legacyConsole      *legacyConsole
+	legacyTranscripts  map[string][]legacyTranscriptEntry
+	legacyLoaded       map[string]bool
 }
 
 func NewTelegramCLI(appID int, appHash string, sessionPath string) *TelegramCLI {
@@ -182,16 +184,7 @@ func (cli *TelegramCLI) processShortUserMessage(update *tg.UpdateShortMessage) {
 	if update.GetOut() {
 		return
 	}
-
-	msg := &tg.Message{
-		ID:      update.GetID(),
-		Date:    update.GetDate(),
-		Message: update.GetMessage(),
-		FromID: &tg.PeerUser{
-			UserID: update.GetUserID(),
-		},
-	}
-	cli.printMessage(msg)
+	cli.printMessage(messageFromShortUserUpdate(update))
 }
 
 func (cli *TelegramCLI) Run() error {
@@ -202,14 +195,5 @@ func (cli *TelegramCLI) processShortChatMessage(update *tg.UpdateShortChatMessag
 	if update.GetOut() {
 		return
 	}
-
-	msg := &tg.Message{
-		ID:      update.GetID(),
-		Date:    update.GetDate(),
-		Message: update.GetMessage(),
-		FromID: &tg.PeerUser{
-			UserID: update.GetFromID(),
-		},
-	}
-	cli.printMessage(msg)
+	cli.printMessage(messageFromShortChatUpdate(update))
 }

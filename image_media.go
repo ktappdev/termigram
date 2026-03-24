@@ -109,69 +109,6 @@ func imagePreviewText(attachment *ImageAttachment, caption string) string {
 	return "[image]"
 }
 
-func messageBodyText(messageID int64, text string, attachment *ImageAttachment) string {
-	if attachment == nil {
-		return text
-	}
-	return imagePlaceholderBody(messageID, attachment.Name, text)
-}
-
-func messagePreviewText(text string, attachment *ImageAttachment) string {
-	if attachment == nil {
-		return strings.TrimSpace(text)
-	}
-	return imagePreviewText(attachment, text)
-}
-
-func messageOutputFromTGMessage(cli *TelegramCLI, message *tg.Message) MessageOutput {
-	fromID := int64(0)
-	fromName := "Unknown"
-	if from, _ := message.GetFromID(); from != nil {
-		if peerUser, ok := from.(*tg.PeerUser); ok {
-			fromID = peerUser.UserID
-			if u, found := cli.getUserByID(peerUser.UserID); found {
-				fromName = strings.TrimSpace(u.FirstName + " " + u.LastName)
-				if fromName == "" {
-					fromName = fmt.Sprintf("User %d", peerUser.UserID)
-				}
-			} else {
-				fromName = fmt.Sprintf("User %d", peerUser.UserID)
-			}
-		}
-	}
-
-	attachment, _ := imageAttachmentFromMessage(message)
-	body := messageBodyText(int64(message.ID), message.Message, attachment)
-
-	return MessageOutput{
-		ID:       int64(message.ID),
-		FromID:   fromID,
-		FromName: fromName,
-		Message:  body,
-		Date:     int64(message.Date),
-		Outgoing: message.GetOut(),
-		Image:    attachment,
-	}
-}
-
-func legacyTranscriptEntryFromMessageOutput(target string, label string, msg MessageOutput) legacyTranscriptEntry {
-	timestamp := time.Unix(msg.Date, 0).Format("15:04:05")
-	entry := legacyTranscriptEntry{
-		MessageID: msg.ID,
-		Outgoing:  msg.Outgoing,
-		Body:      msg.Message,
-		Image:     msg.Image,
-	}
-	if msg.Outgoing {
-		entry.Header = outgoingTranscriptHeader(label, target, false)
-		entry.Meta = outgoingTranscriptMeta(timestamp)
-	} else {
-		entry.Header = incomingTranscriptHeader(msg.FromName, target, false)
-		entry.Meta = incomingTranscriptMeta(timestamp)
-	}
-	return entry
-}
-
 func latestImageEntry(entries []legacyTranscriptEntry) (*legacyTranscriptEntry, bool) {
 	for i := len(entries) - 1; i >= 0; i-- {
 		if entries[i].Image != nil {
@@ -271,23 +208,28 @@ func (cli *TelegramCLI) openImageFromCurrentChat(ctx context.Context, selector s
 	return path, nil
 }
 
-func (cli *TelegramCLI) recordOutgoingImage(target string, label string, attachment *ImageAttachment, caption string) {
+func (cli *TelegramCLI) recordOutgoingImage(target string, label string, messageID int64, attachment *ImageAttachment, caption string, reply *ReplyReference) {
 	if attachment == nil {
 		return
 	}
 
 	now := time.Now()
-	body := imagePlaceholderBody(0, attachment.Name, caption)
+	body := messageBodyText(messageID, caption, attachment, reply)
 	preview := imagePreviewText(attachment, caption)
 
 	cli.setCurrentChat(target, label)
 	cli.markChatActivity(target, preview, now)
 	entry := legacyTranscriptEntry{
-		Outgoing: true,
-		Header:   outgoingTranscriptHeader(label, target, false),
-		Body:     body,
-		Meta:     outgoingTranscriptMeta(now.Format("15:04:05")),
-		Image:    attachment,
+		MessageID: messageID,
+		Outgoing:  true,
+		Sender:    "You",
+		Header:    outgoingTranscriptHeader(label, target, false),
+		Body:      body,
+		Meta:      outgoingTranscriptMeta(now.Format("15:04:05")),
+		Text:      strings.TrimSpace(caption),
+		Preview:   preview,
+		Reply:     cloneReplyReference(reply),
+		Image:     attachment,
 	}
 	cli.appendLegacyTranscriptEntry(target, entry)
 }

@@ -6,12 +6,12 @@ import "context"
 type TelegramBackend interface {
 	IsAuthorized(ctx context.Context) (bool, error)
 	GetSelf(ctx context.Context) (*UserOutput, error)
-	SendMessage(ctx context.Context, target string, text string) error
+	SendMessage(ctx context.Context, target string, text string, opts SendOptions) error
 }
 
 // ImageSenderBackend is implemented by backends that can send image attachments.
 type ImageSenderBackend interface {
-	SendImage(ctx context.Context, target string, source string, caption string) error
+	SendImage(ctx context.Context, target string, source string, caption string, opts SendOptions) error
 }
 
 // HistoryBackend is implemented by backends that can fetch recent messages.
@@ -71,6 +71,9 @@ type MessageOutput struct {
 	Message  string           `json:"message"`
 	Date     int64            `json:"date"`
 	Outgoing bool             `json:"outgoing,omitempty"`
+	Text     string           `json:"-"`
+	Preview  string           `json:"-"`
+	Reply    *ReplyReference  `json:"reply,omitempty"`
 	Image    *ImageAttachment `json:"image,omitempty"`
 }
 

@@ -218,7 +218,7 @@ func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 		if !strings.HasPrefix(input, "\\") {
 			target, _ := cli.currentChat()
 			if target != "" {
-				cli.sendMessage(ctx, target, input)
+				cli.sendMessage(ctx, target, input, true)
 				continue
 			}
 			fmt.Println(yellow("No active chat."), "Use \\msg <id|@user> <text> to start, or \\help.")
@@ -270,17 +270,17 @@ func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 			if strings.HasPrefix(target, "@") {
 				username := normalizeUsername(target)
 				if _, found := cli.getUserByUsername(username); found {
-					cli.sendMessage(ctx, target, msgText)
+					cli.sendMessage(ctx, target, msgText, false)
 				} else {
 					suggestions := cli.findMatchingUsernames(username, 5)
 					if len(suggestions) > 0 {
 						fmt.Printf("Message not sent. Did you mean: %s?\n", strings.Join(suggestions, ", "))
 					} else {
-						cli.sendMessage(ctx, target, msgText)
+						cli.sendMessage(ctx, target, msgText, false)
 					}
 				}
 			} else {
-				cli.sendMessage(ctx, target, msgText)
+				cli.sendMessage(ctx, target, msgText, false)
 			}
 		case "\\image":
 			if len(parts) < 2 {
@@ -296,8 +296,39 @@ func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 			if len(parts) > 2 {
 				caption = strings.Join(parts[2:], " ")
 			}
-			if err := cli.sendImage(ctx, target, label, parts[1], caption); err != nil {
+			if err := cli.sendImage(ctx, target, label, parts[1], caption, true); err != nil {
 				fmt.Printf("%s %v\n", red("Error sending image:"), err)
+			}
+		case "\\reply":
+			selector := ""
+			if len(parts) > 2 {
+				fmt.Println(yellow("Usage:"), "\\reply [message-id|query]")
+				continue
+			}
+			if len(parts) == 2 {
+				selector = parts[1]
+			}
+			ref, err := cli.selectReplyTarget(ctx, selector)
+			if err != nil {
+				if errors.Is(err, errReplyPickerCancelled) {
+					fmt.Println(dim("Reply cancelled."))
+					continue
+				}
+				fmt.Printf("%s %v\n", red("Error selecting reply target:"), err)
+				continue
+			}
+			if !isValidReplyReference(ref) {
+				fmt.Println(dim("No reply target selected."))
+				continue
+			}
+			target, _ := cli.currentChat()
+			cli.setPendingReply(target, ref)
+			fmt.Printf("%s %s\n", green("Replying to:"), pendingReplySummary(ref))
+		case "\\cancelreply":
+			if cli.clearPendingReply() {
+				fmt.Println(dim("Reply cleared."))
+			} else {
+				fmt.Println(dim("No pending reply."))
 			}
 		case "\\openimage":
 			selector := "last"

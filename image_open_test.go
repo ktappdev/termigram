@@ -119,8 +119,8 @@ func TestSendImageCachesRemoteSourceForReopen(t *testing.T) {
 		openLocalPath = originalOpen
 	}()
 
-	sendPreparedImageWithBackend = func(ctx context.Context, backend *UserBackend, target string, prepared preparedImageSource, caption string) error {
-		return nil
+	sendPreparedImageWithBackend = func(ctx context.Context, backend *UserBackend, target string, prepared preparedImageSource, caption string, opts SendOptions) (int64, error) {
+		return 321, nil
 	}
 
 	var opened string
@@ -129,7 +129,7 @@ func TestSendImageCachesRemoteSourceForReopen(t *testing.T) {
 		return nil
 	}
 
-	if err := cli.sendImage(context.Background(), "@alice", "Alice", server.URL+"/meme.png", "hello"); err != nil {
+	if err := cli.sendImage(context.Background(), "@alice", "Alice", server.URL+"/meme.png", "hello", false); err != nil {
 		t.Fatalf("sendImage returned error: %v", err)
 	}
 	cli.legacyLoaded[normalizeLegacyTranscriptTarget("@alice")] = true

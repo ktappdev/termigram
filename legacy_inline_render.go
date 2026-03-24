@@ -9,7 +9,7 @@ type legacyRenderBlock struct {
 	Rows int
 }
 
-func (cli *TelegramCLI) renderLegacyChatViewWithInlineImages(label string, target string, entries []legacyTranscriptEntry, width int, height int, cfg inlineImageConfig) (string, bool) {
+func (cli *TelegramCLI) renderLegacyChatViewWithInlineImages(label string, target string, entries []legacyTranscriptEntry, width int, height int, cfg inlineImageConfig, pendingReply string) (string, bool) {
 	if width <= 0 {
 		width = 80
 	}
@@ -17,10 +17,7 @@ func (cli *TelegramCLI) renderLegacyChatViewWithInlineImages(label string, targe
 		height = 2
 	}
 
-	headerRows := []string{
-		dim(truncateVisibleWidth("Active chat: "+strings.TrimSpace(label)+" ("+strings.TrimSpace(target)+")", width)),
-		dim(strings.Repeat("─", maxInt(width, 1))),
-	}
+	headerRows := legacyChatHeaderRows(label, target, width, pendingReply)
 
 	maxRows := height - 1
 	if maxRows < len(headerRows) {

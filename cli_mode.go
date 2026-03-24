@@ -12,21 +12,22 @@ import (
 
 // CLICommand represents a non-interactive CLI command.
 type CLICommand struct {
-	Name    string
-	Args    []string
-	JSON    bool
-	Limit   int
-	Offset  int
-	Timeout time.Duration
+	Name             string
+	Args             []string
+	JSON             bool
+	Limit            int
+	Offset           int
+	Timeout          time.Duration
+	ReplyToMessageID int64
 }
 
 // RunCLICommand executes a non-interactive CLI command against a backend.
 func RunCLICommand(ctx context.Context, backend TelegramBackend, cmd CLICommand) error {
 	switch cmd.Name {
 	case "send":
-		return cmdSend(ctx, backend, cmd.Args, cmd.JSON)
+		return cmdSend(ctx, backend, cmd.Args, cmd.ReplyToMessageID, cmd.JSON)
 	case "send-image":
-		return cmdSendImage(ctx, backend, cmd.Args, cmd.JSON)
+		return cmdSendImage(ctx, backend, cmd.Args, cmd.ReplyToMessageID, cmd.JSON)
 	case "get":
 		return cmdGet(ctx, backend, cmd.Args, cmd.Limit, cmd.JSON)
 	case "contacts":
@@ -40,7 +41,7 @@ func RunCLICommand(ctx context.Context, backend TelegramBackend, cmd CLICommand)
 	}
 }
 
-func cmdSendImage(ctx context.Context, backend TelegramBackend, args []string, asJSON bool) error {
+func cmdSendImage(ctx context.Context, backend TelegramBackend, args []string, replyTo int64, asJSON bool) error {
 	if len(args) < 2 {
 		return fmt.Errorf("usage: send-image <user_id|@username> <source> [caption]")
 	}
@@ -55,7 +56,7 @@ func cmdSendImage(ctx context.Context, backend TelegramBackend, args []string, a
 	caption := strings.Join(args[2:], " ")
 	resolvedUser, _ := resolveTargetForOutput(ctx, backend, target)
 
-	if err := imageBackend.SendImage(ctx, target, source, caption); err != nil {
+	if err := imageBackend.SendImage(ctx, target, source, caption, SendOptions{ReplyToMessageID: replyTo}); err != nil {
 		return err
 	}
 
@@ -65,6 +66,9 @@ func cmdSendImage(ctx context.Context, backend TelegramBackend, args []string, a
 			"source":    source,
 			"caption":   caption,
 			"timestamp": time.Now().Unix(),
+		}
+		if replyTo > 0 {
+			data["reply_to"] = replyTo
 		}
 		if resolvedUser != nil {
 			sentTo := resolvedUser.Username
@@ -94,7 +98,7 @@ func cmdSendImage(ctx context.Context, backend TelegramBackend, args []string, a
 	return nil
 }
 
-func cmdSend(ctx context.Context, backend TelegramBackend, args []string, asJSON bool) error {
+func cmdSend(ctx context.Context, backend TelegramBackend, args []string, replyTo int64, asJSON bool) error {
 	if len(args) < 2 {
 		return fmt.Errorf("usage: send <user_id|@username> <message>")
 	}
@@ -103,7 +107,7 @@ func cmdSend(ctx context.Context, backend TelegramBackend, args []string, asJSON
 	text := strings.Join(args[1:], " ")
 	resolvedUser, _ := resolveTargetForOutput(ctx, backend, target)
 
-	if err := backend.SendMessage(ctx, target, text); err != nil {
+	if err := backend.SendMessage(ctx, target, text, SendOptions{ReplyToMessageID: replyTo}); err != nil {
 		return err
 	}
 
@@ -112,6 +116,9 @@ func cmdSend(ctx context.Context, backend TelegramBackend, args []string, asJSON
 			"target":    target,
 			"message":   text,
 			"timestamp": time.Now().Unix(),
+		}
+		if replyTo > 0 {
+			data["reply_to"] = replyTo
 		}
 		if resolvedUser != nil {
 			sentTo := resolvedUser.Username

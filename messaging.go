@@ -7,14 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gotd/td/telegram/message/peer"
 	"github.com/gotd/td/tg"
 	"github.com/mattn/go-runewidth"
 	"golang.org/x/term"
 )
 
-var sendPreparedImageWithBackend = func(ctx context.Context, backend *UserBackend, target string, prepared preparedImageSource, caption string) error {
-	return backend.sendPreparedImage(ctx, target, prepared, caption)
+var sendPreparedImageWithBackend = func(ctx context.Context, backend *UserBackend, target string, prepared preparedImageSource, caption string, opts SendOptions) (int64, error) {
+	return backend.sendPreparedImage(ctx, target, prepared, caption, opts)
 }
 
 type transcriptTheme struct {
@@ -242,32 +241,10 @@ func printTranscriptMessage(outgoing bool, header string, body string, meta stri
 	fmt.Printf("%s\n", renderTranscriptBubble(outgoing, header, body, meta))
 }
 
-func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text string) {
+func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text string, usePendingReply bool) {
 	user, err := cli.findUserByIDOrUsername(ctx, target)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
-		return
-	}
-
-	resolver := peer.DefaultResolver(cli.api)
-	inputPeer, err := resolver.ResolveDomain(ctx, fmt.Sprintf("user#%d", user.ID))
-	if err != nil {
-		inputPeer = &tg.InputPeerUser{
-			UserID:     user.ID,
-			AccessHash: user.AccessHash,
-		}
-	}
-
-	randomID := time.Now().UnixNano() ^ (user.ID << 16)
-	req := &tg.MessagesSendMessageRequest{
-		Peer:     inputPeer,
-		Message:  text,
-		RandomID: randomID,
-	}
-
-	_, err = cli.api.MessagesSendMessage(ctx, req)
-	if err != nil {
-		fmt.Printf("Error sending message: %v\n", err)
 		return
 	}
 
@@ -283,32 +260,57 @@ func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text str
 	if user.Username != "" {
 		targetLabel = "@" + user.Username
 	}
-
-	if text == "" {
+	if strings.TrimSpace(text) == "" {
 		return
 	}
 
+	var (
+		replyRef *ReplyReference
+		opts     SendOptions
+	)
+	if usePendingReply {
+		replyRef = cli.pendingReplyForTarget(targetLabel)
+		if isValidReplyReference(replyRef) {
+			opts.ReplyToMessageID = replyRef.MessageID
+		}
+	}
+
+	backend := &UserBackend{cli: cli}
+	messageID, err := backend.sendText(ctx, targetLabel, text, opts)
+	if err != nil {
+		fmt.Printf("Error sending message: %v\n", err)
+		return
+	}
+	if usePendingReply && isValidReplyReference(replyRef) {
+		cli.consumePendingReply(targetLabel)
+	}
+
 	now := time.Now()
+	preview := messagePreviewText(text, nil)
 	cli.setCurrentChat(targetLabel, displayName)
-	cli.markChatActivity(targetLabel, text, now)
+	cli.markChatActivity(targetLabel, preview, now)
 	_ = cli.ensureLegacyTranscript(ctx, targetLabel, displayName)
 
 	entry := legacyTranscriptEntry{
-		Outgoing: true,
-		Header:   outgoingTranscriptHeader(displayName, targetLabel, false),
-		Body:     text,
-		Meta:     outgoingTranscriptMeta(now.Format("15:04:05")),
+		MessageID: messageID,
+		Outgoing:  true,
+		Sender:    "You",
+		Header:    outgoingTranscriptHeader(displayName, targetLabel, false),
+		Body:      messageBodyText(messageID, text, nil, replyRef),
+		Meta:      outgoingTranscriptMeta(now.Format("15:04:05")),
+		Text:      strings.TrimSpace(text),
+		Preview:   preview,
+		Reply:     cloneReplyReference(replyRef),
 	}
 	cli.appendLegacyTranscriptEntry(targetLabel, entry)
 
 	if interactiveTTYAvailable() {
 		return
 	}
-
 	printTranscriptMessage(true, entry.Header, entry.Body, entry.Meta)
 }
 
-func (cli *TelegramCLI) sendImage(ctx context.Context, target string, label string, source string, caption string) error {
+func (cli *TelegramCLI) sendImage(ctx context.Context, target string, label string, source string, caption string, usePendingReply bool) error {
 	backend := &UserBackend{cli: cli}
 	prepared, err := prepareImageSource(ctx, source)
 	if err != nil {
@@ -316,8 +318,23 @@ func (cli *TelegramCLI) sendImage(ctx context.Context, target string, label stri
 	}
 	defer prepared.Cleanup()
 
-	if err := sendPreparedImageWithBackend(ctx, backend, target, prepared, caption); err != nil {
+	var (
+		replyRef *ReplyReference
+		opts     SendOptions
+	)
+	if usePendingReply {
+		replyRef = cli.pendingReplyForTarget(target)
+		if isValidReplyReference(replyRef) {
+			opts.ReplyToMessageID = replyRef.MessageID
+		}
+	}
+
+	messageID, err := sendPreparedImageWithBackend(ctx, backend, target, prepared, caption, opts)
+	if err != nil {
 		return err
+	}
+	if usePendingReply && isValidReplyReference(replyRef) {
+		cli.consumePendingReply(target)
 	}
 
 	attachment := &ImageAttachment{
@@ -335,18 +352,23 @@ func (cli *TelegramCLI) sendImage(ctx context.Context, target string, label stri
 	if cachedPath != "" {
 		attachment.CachedPath = cachedPath
 	}
-	cli.recordOutgoingImage(target, label, attachment, caption)
+	cli.recordOutgoingImage(target, label, messageID, attachment, caption, replyRef)
 	if interactiveTTYAvailable() {
 		cli.redrawLegacyChatView()
 		return nil
 	}
 
 	entry := legacyTranscriptEntry{
-		Outgoing: true,
-		Header:   outgoingTranscriptHeader(label, target, false),
-		Body:     imagePlaceholderBody(0, prepared.Name, caption),
-		Meta:     outgoingTranscriptMeta(time.Now().Format("15:04:05")),
-		Image:    attachment,
+		MessageID: messageID,
+		Outgoing:  true,
+		Sender:    "You",
+		Header:    outgoingTranscriptHeader(label, target, false),
+		Body:      messageBodyText(messageID, caption, attachment, replyRef),
+		Meta:      outgoingTranscriptMeta(time.Now().Format("15:04:05")),
+		Text:      strings.TrimSpace(caption),
+		Preview:   imagePreviewText(attachment, caption),
+		Reply:     cloneReplyReference(replyRef),
+		Image:     attachment,
 	}
 	printTranscriptMessage(true, entry.Header, entry.Body, entry.Meta)
 	return nil
@@ -372,14 +394,16 @@ func (cli *TelegramCLI) shouldPrintIncoming(msg *tg.Message, fromTarget string) 
 }
 
 func (cli *TelegramCLI) printMessage(msg *tg.Message) {
-	if msg.GetOut() {
+	if msg == nil || msg.GetOut() {
 		return
 	}
 
 	fromID, _ := msg.GetFromID()
+	if fromID == nil {
+		fromID = msg.FromID
+	}
 	fromName := "Unknown sender"
 	fromTarget := "unknown"
-
 	if peerUser, ok := fromID.(*tg.PeerUser); ok {
 		if user, found := cli.getUserByID(peerUser.UserID); found {
 			fromName = strings.TrimSpace(user.FirstName + " " + user.LastName)
@@ -399,19 +423,18 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 			fromTarget = fmt.Sprintf("%d", peerUser.UserID)
 		}
 	}
-
 	if !cli.shouldPrintIncoming(msg, fromTarget) {
 		return
 	}
 
-	attachment, _ := imageAttachmentFromMessage(msg)
-	body := messageBodyText(int64(msg.ID), msg.Message, attachment)
-	if strings.TrimSpace(body) == "" {
+	reply := cli.resolveReplyReferenceForTarget(ensureContext(cli.ctx), fromTarget, msg)
+	out := messageOutputFromTGMessageWithReply(cli, msg, reply)
+	if strings.TrimSpace(out.Message) == "" {
 		return
 	}
 
 	msgTime := time.Unix(int64(msg.Date), 0)
-	cli.markChatActivity(fromTarget, messagePreviewText(msg.Message, attachment), msgTime)
+	cli.markChatActivity(fromTarget, out.Preview, msgTime)
 	activeTarget, activeLabel := cli.currentChat()
 	incomingTarget := normalizeUsername(fromTarget)
 	mismatch := activeTarget == "" || normalizeUsername(activeTarget) != incomingTarget
@@ -421,14 +444,8 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 		cli.clearChatUnreadCount(fromTarget)
 	}
 
-	entry := legacyTranscriptEntry{
-		MessageID: int64(msg.ID),
-		Outgoing:  false,
-		Header:    incomingTranscriptHeader(fromName, fromTarget, mismatch),
-		Body:      body,
-		Meta:      incomingTranscriptMeta(msgTime.Format("15:04:05")),
-		Image:     attachment,
-	}
+	entry := legacyTranscriptEntryFromMessageOutput(fromTarget, fromName, out)
+	entry.Header = incomingTranscriptHeader(fromName, fromTarget, mismatch)
 	cli.appendLegacyTranscriptEntry(fromTarget, entry)
 
 	if !mismatch && cli.currentLegacyConsole() != nil {

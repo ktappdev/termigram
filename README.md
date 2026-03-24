@@ -42,6 +42,8 @@ Default interactive mode uses the command/transcript workflow. Open a chat with 
 - `\find <prefix>`
 - `\msg <id|@username> <text>`
 - `\to <id|@username>`
+- `\reply [message-id|query]`
+- `\cancelreply`
 - `\image <source> [caption]`
 - `\openimage [last|message-id|query]`
 - `\chats`
@@ -67,8 +69,8 @@ Before one-shot commands work, run interactive once and complete phone login:
 
 #### Command reference
 
-- `send <user_id|@username> <message>`
-- `send-image <user_id|@username> <source> [caption]`
+- `send [--reply-to N] <user_id|@username> <message>`
+- `send-image [--reply-to N] <user_id|@username> <source> [caption]`
 - `get [--limit N] <user_id|@username>`
 - `contacts`
 - `me`
@@ -84,7 +86,8 @@ Before one-shot commands work, run interactive once and complete phone login:
 
 ```bash
 ./termigram send --json @oncall "Job failed: nightly-import"
-./termigram send-image --json @ken ./meme.png "status update"
+./termigram send --json --reply-to 123 @ken "On it"
+./termigram send-image --json --reply-to 123 @ken ./meme.png "status update"
 ./termigram get --json --limit 20 @ken | jq '.data.messages[] | {id, from_name, message}'
 ./termigram me --json | jq '.data.id'
 ```
@@ -105,6 +108,7 @@ Before one-shot commands work, run interactive once and complete phone login:
 - One-shot CLI mode for scripting
 - Reuses a saved user session
 - Commands: `send`, `send-image`, `get`, `contacts`, `me`, `find`
+- One-shot reply send via `--reply-to` on `send` and `send-image`
 
 ### Terminal UI notes
 
@@ -114,6 +118,8 @@ Interactive chat flow:
 
 - `\msg <id|@user> <text>` sends a message and enters that chat
 - `\to <id|@user>` switches the active chat
+- `\reply [message-id|query]` picks a recent message in the active chat and arms a pending reply
+- `\cancelreply` clears the pending reply target
 - `\image <source> [caption]` sends a JPG/PNG/WEBP image into the active chat
 - `\openimage` opens an image picker for the active chat
 - `\openimage last` opens the newest image in the active chat

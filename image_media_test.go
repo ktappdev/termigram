@@ -74,3 +74,23 @@ func TestMessageOutputFromTGMessageImageDocumentWithCaption(t *testing.T) {
 		t.Fatalf("expected caption in placeholder, got %q", out.Message)
 	}
 }
+
+func TestMessageOutputFromTGMessageWithReplyIncludesQuote(t *testing.T) {
+	cli := NewTelegramCLI(1, "hash", t.TempDir()+"/session.json")
+	cli.cacheUser(&tg.User{ID: 42, FirstName: "Alice"})
+
+	msg := &tg.Message{
+		ID:      303,
+		Date:    1_700_000_200,
+		FromID:  &tg.PeerUser{UserID: 42},
+		Message: "got it",
+	}
+
+	out := messageOutputFromTGMessageWithReply(cli, msg, &ReplyReference{MessageID: 101, Sender: "You", Preview: "previous"})
+	if !strings.Contains(out.Message, "↪ You") {
+		t.Fatalf("expected reply quote in body, got %q", out.Message)
+	}
+	if out.Reply == nil || out.Reply.MessageID != 101 {
+		t.Fatalf("expected reply metadata to be preserved")
+	}
+}

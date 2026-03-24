@@ -15,9 +15,13 @@ const (
 type legacyTranscriptEntry struct {
 	MessageID int64
 	Outgoing  bool
+	Sender    string
 	Header    string
 	Body      string
 	Meta      string
+	Text      string
+	Preview   string
+	Reply     *ReplyReference
 	Image     *ImageAttachment
 }
 

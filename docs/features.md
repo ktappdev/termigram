@@ -23,6 +23,8 @@ Common interactive commands include:
 - `\find <prefix>`
 - `\msg <id|@username> <text>`
 - `\to <id|@username>`
+- `\reply [message-id|query]`
+- `\cancelreply`
 - `\image <source> [caption]`
 - `\openimage`
 - `\openimage last`
@@ -56,6 +58,7 @@ Highlighted capabilities:
 
 - recent chat switching
 - unread chat picking
+- picker-driven replies with compact quoted previews
 - image sending from local paths, file URLs, and HTTP/HTTPS URLs
 - recent-image picker for `\openimage`
 - inline preview of visible active-chat images on supported terminals (kitty/iTerm2)
