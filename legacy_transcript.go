@@ -9,6 +9,7 @@ import (
 const (
 	legacyTranscriptLimit             = 100
 	legacyTranscriptHistoryFetchLimit = 20
+	legacyTranscriptResumeFetchLimit  = 50
 	unreadTranscriptMinContextEntries = 2
 )
 
@@ -155,7 +156,18 @@ func (cli *TelegramCLI) ensureLegacyTranscriptContext(ctx context.Context, targe
 		return nil
 	}
 
-	messages, err := legacyTranscriptMessageLoader(ctx, cli, target, legacyTranscriptHistoryFetchLimit)
+	return cli.syncLegacyTranscriptContext(ctx, target, label, legacyTranscriptHistoryFetchLimit)
+}
+
+func (cli *TelegramCLI) syncLegacyTranscriptContext(ctx context.Context, target string, label string, limit int) error {
+	if ctx == nil {
+		return nil
+	}
+	if limit <= 0 {
+		limit = legacyTranscriptHistoryFetchLimit
+	}
+
+	messages, err := legacyTranscriptMessageLoader(ctx, cli, target, limit)
 	if err != nil {
 		return err
 	}

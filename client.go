@@ -29,6 +29,8 @@ type TelegramCLI struct {
 	usernameByUserID   map[int64]string
 	currentChatTarget  string
 	currentChatLabel   string
+	lastInteractiveUse time.Time
+	lastResumeSync     time.Time
 	chatLastActivity   map[string]time.Time
 	chatLastMessage    map[string]string
 	chatUnreadCount    map[string]int

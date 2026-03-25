@@ -215,6 +215,8 @@ func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 			continue
 		}
 
+		cli.maybeResumeAfterIdle(ctx)
+
 		if !strings.HasPrefix(input, "\\") {
 			target, _ := cli.currentChat()
 			if target != "" {

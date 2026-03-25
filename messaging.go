@@ -276,7 +276,9 @@ func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text str
 	}
 
 	backend := &UserBackend{cli: cli}
-	messageID, err := backend.sendText(ctx, targetLabel, text, opts)
+	messageID, err := cli.retryInteractiveRPC(ctx, func(runCtx context.Context) (int64, error) {
+		return backend.sendText(runCtx, targetLabel, text, opts)
+	})
 	if err != nil {
 		fmt.Printf("Error sending message: %v\n", err)
 		return
@@ -329,7 +331,9 @@ func (cli *TelegramCLI) sendImage(ctx context.Context, target string, label stri
 		}
 	}
 
-	messageID, err := sendPreparedImageWithBackend(ctx, backend, target, prepared, caption, opts)
+	messageID, err := cli.retryInteractiveRPC(ctx, func(runCtx context.Context) (int64, error) {
+		return sendPreparedImageWithBackend(runCtx, backend, target, prepared, caption, opts)
+	})
 	if err != nil {
 		return err
 	}
