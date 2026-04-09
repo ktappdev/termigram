@@ -46,3 +46,6 @@ build/
 .bv/
 .playwright-cli/tester-artifacts/
 context.json
+
+# Beads / Dolt files (added by bd init)
+.beads-credential-key
