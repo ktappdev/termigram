@@ -151,7 +151,7 @@ func replyReferenceFromMessage(cli *TelegramCLI, message *tg.Message) *ReplyRefe
 	}
 }
 
-func replyReferenceFromEntry(entry legacyTranscriptEntry) *ReplyReference {
+func replyReferenceFromEntry(entry transcriptEntry) *ReplyReference {
 	if entry.MessageID <= 0 {
 		return nil
 	}
@@ -238,8 +238,8 @@ func (cli *TelegramCLI) resolveReplyReferenceForTarget(ctx context.Context, targ
 		return nil
 	}
 
-	entries, _ := cli.legacyTranscriptSnapshot(target)
-	if entry, ok := findLegacyEntryByID(entries, replyToID); ok {
+	entries, _ := cli.transcriptSnapshot(target)
+	if entry, ok := findTranscriptEntryByID(entries, replyToID); ok {
 		return replyReferenceFromEntry(*entry)
 	}
 
@@ -318,7 +318,7 @@ func messageClassesToMessages(classes []tg.MessageClass) []*tg.Message {
 	return messages
 }
 
-func findLegacyEntryByID(entries []legacyTranscriptEntry, messageID int64) (*legacyTranscriptEntry, bool) {
+func findTranscriptEntryByID(entries []transcriptEntry, messageID int64) (*transcriptEntry, bool) {
 	for _, entry := range entries {
 		if entry.MessageID == messageID {
 			copy := entry

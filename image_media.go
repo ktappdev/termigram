@@ -109,7 +109,7 @@ func imagePreviewText(attachment *ImageAttachment, caption string) string {
 	return "[image]"
 }
 
-func latestImageEntry(entries []legacyTranscriptEntry) (*legacyTranscriptEntry, bool) {
+func latestImageEntry(entries []transcriptEntry) (*transcriptEntry, bool) {
 	for i := len(entries) - 1; i >= 0; i-- {
 		if entries[i].Image != nil {
 			entry := entries[i]
@@ -119,7 +119,7 @@ func latestImageEntry(entries []legacyTranscriptEntry) (*legacyTranscriptEntry, 
 	return nil, false
 }
 
-func findImageEntryByID(entries []legacyTranscriptEntry, messageID int64) (*legacyTranscriptEntry, bool) {
+func findImageEntryByID(entries []transcriptEntry, messageID int64) (*transcriptEntry, bool) {
 	for _, entry := range entries {
 		if entry.MessageID == messageID && entry.Image != nil {
 			copy := entry
@@ -135,17 +135,17 @@ func (cli *TelegramCLI) openImageFromCurrentChat(ctx context.Context, selector s
 		return "", fmt.Errorf("no active chat; switch chats with \\to or \\msg first")
 	}
 
-	if err := cli.ensureLegacyTranscript(ctx, target, label); err != nil {
+	if err := cli.ensureTranscript(ctx, target, label); err != nil {
 		return "", err
 	}
 
-	entries, _ := cli.legacyTranscriptSnapshot(target)
+	entries, _ := cli.transcriptSnapshot(target)
 	if len(entries) == 0 {
 		return "", fmt.Errorf("no messages available for the active chat")
 	}
 
 	var (
-		entry *legacyTranscriptEntry
+		entry *transcriptEntry
 		ok    bool
 	)
 
@@ -219,7 +219,7 @@ func (cli *TelegramCLI) recordOutgoingImage(target string, label string, message
 
 	cli.setCurrentChat(target, label)
 	cli.markChatActivity(target, preview, now)
-	entry := legacyTranscriptEntry{
+	entry := transcriptEntry{
 		MessageID: messageID,
 		Outgoing:  true,
 		Sender:    "You",
@@ -231,7 +231,7 @@ func (cli *TelegramCLI) recordOutgoingImage(target string, label string, message
 		Reply:     cloneReplyReference(reply),
 		Image:     attachment,
 	}
-	cli.appendLegacyTranscriptEntry(target, entry)
+	cli.appendTranscriptEntry(target, entry)
 }
 
 func fileExists(path string) bool {

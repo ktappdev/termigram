@@ -2,8 +2,8 @@ package main
 
 import "testing"
 
-func TestParseRootFlagsDefaultUI(t *testing.T) {
-	remaining, mode, uiMode, handled, err := parseRootFlags([]string{"--mode", "user"})
+func TestParseRootFlags(t *testing.T) {
+	remaining, mode, handled, err := parseRootFlags([]string{"--mode", "user"})
 	if err != nil {
 		t.Fatalf("parseRootFlags returned error: %v", err)
 	}
@@ -13,24 +13,14 @@ func TestParseRootFlagsDefaultUI(t *testing.T) {
 	if mode != "user" {
 		t.Fatalf("expected mode=user, got %q", mode)
 	}
-	if uiMode != "auto" {
-		t.Fatalf("expected default uiMode=auto, got %q", uiMode)
-	}
 	if len(remaining) != 0 {
 		t.Fatalf("expected no remaining args, got %v", remaining)
 	}
 }
 
-func TestParseInteractiveUIModeValidation(t *testing.T) {
-	for _, candidate := range []string{"auto", "legacy", "AUTO"} {
-		if _, err := parseInteractiveUIMode(candidate); err != nil {
-			t.Fatalf("expected %q to be accepted, got error %v", candidate, err)
-		}
-	}
-	for _, candidate := range []string{"tui", "broken"} {
-		if _, err := parseInteractiveUIMode(candidate); err == nil {
-			t.Fatalf("expected invalid ui mode %q to return an error", candidate)
-		}
+func TestParseRootFlagsRejectsDeprecatedUIFlag(t *testing.T) {
+	if _, _, _, err := parseRootFlags([]string{"--ui", "legacy"}); err == nil {
+		t.Fatalf("expected removed --ui flag to return an error")
 	}
 }
 

@@ -2,7 +2,7 @@ package main
 
 import "strings"
 
-func legacyChatHeaderRows(label string, target string, width int, pendingReply string) []string {
+func chatHeaderRows(label string, target string, width int, pendingReply string) []string {
 	rows := []string{
 		dim(truncateVisibleWidth("Active chat: "+strings.TrimSpace(label)+" ("+strings.TrimSpace(target)+")", width)),
 		dim(strings.Repeat("─", maxInt(width, 1))),

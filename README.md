@@ -32,8 +32,7 @@ Default interactive mode uses the command/transcript workflow. Open a chat with 
 
 ### Interactive UI mode
 
-- `./termigram` uses the default command/transcript UI
-- `./termigram --ui legacy` uses the same command/transcript UI explicitly
+- `./termigram` uses the command/transcript UI
 
 #### Interactive commands
 

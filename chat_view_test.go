@@ -7,12 +7,12 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-func TestRenderLegacyChatViewFitsTerminalBounds(t *testing.T) {
-	entries := []legacyTranscriptEntry{
+func TestRenderChatViewFitsTerminalBounds(t *testing.T) {
+	entries := []transcriptEntry{
 		{
 			MessageID: 1,
 			Header:    "Ken's Butler",
-			Body:      "This is a long incoming message that should wrap cleanly inside the legacy chat view when the terminal width changes.",
+			Body:      "This is a long incoming message that should wrap cleanly inside the chat view when the terminal width changes.",
 			Meta:      "07:28:10",
 		},
 		{
@@ -24,26 +24,26 @@ func TestRenderLegacyChatViewFitsTerminalBounds(t *testing.T) {
 	}
 
 	for _, width := range []int{120, 90, 60, 40, 24} {
-		view := renderLegacyChatView("Ken's Butler", "@Ken592Bot", entries, width, 20)
+		view := renderChatView("Ken's Butler", "@Ken592Bot", entries, width, 20)
 		for _, line := range strings.Split(view, "\n") {
-			if got := runewidth.StringWidth(line); got > width {
+			if got := runewidth.StringWidth(stripANSI(line)); got > width {
 				t.Fatalf("rendered line width %d exceeded width %d: %q", got, width, line)
 			}
 		}
 	}
 }
 
-func TestMergeLegacyEntrySlicesDedupesRepeatedMessages(t *testing.T) {
-	fetched := []legacyTranscriptEntry{
+func TestMergeTranscriptEntrySlicesDedupesRepeatedMessages(t *testing.T) {
+	fetched := []transcriptEntry{
 		{MessageID: 10, Header: "Ken", Body: "hello", Meta: "07:28:10"},
 	}
-	buffered := []legacyTranscriptEntry{
+	buffered := []transcriptEntry{
 		{MessageID: 10, Header: "Ken", Body: "hello", Meta: "07:28:10"},
 		{Header: "You", Body: "draft send", Meta: "07:29:48  ✓", Outgoing: true},
 		{Header: "You", Body: "draft send", Meta: "07:29:48  ✓", Outgoing: true},
 	}
 
-	merged := mergeLegacyEntrySlices(fetched, buffered)
+	merged := mergeTranscriptEntrySlices(fetched, buffered)
 	if got := len(merged); got != 2 {
 		t.Fatalf("expected 2 merged entries after dedupe, got %d", got)
 	}

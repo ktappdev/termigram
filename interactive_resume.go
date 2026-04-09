@@ -27,7 +27,7 @@ func (cli *TelegramCLI) maybeResumeAfterIdle(ctx context.Context) {
 	}
 
 	if err := cli.resumeInteractiveSession(ctx, idle, false); err != nil {
-		cli.writeLegacyOutput(fmt.Sprintf("[warn] Could not refresh Telegram after idle: %v", err))
+		cli.writeOutput(fmt.Sprintf("[warn] Could not refresh Telegram after idle: %v", err))
 	}
 }
 
@@ -88,7 +88,7 @@ func (cli *TelegramCLI) refreshInteractiveState(ctx context.Context) error {
 
 	target, label := cli.currentChat()
 	if target != "" {
-		if err := cli.syncLegacyTranscriptContext(ctx, target, label, legacyTranscriptResumeFetchLimit); err != nil {
+		if err := cli.syncTranscriptContext(ctx, target, label, transcriptResumeFetchLimit); err != nil {
 			errs = append(errs, fmt.Errorf("refresh active chat: %w", err))
 		} else {
 			cli.clearChatUnreadCount(target)
@@ -99,8 +99,8 @@ func (cli *TelegramCLI) refreshInteractiveState(ctx context.Context) error {
 		errs = append(errs, fmt.Errorf("refresh dialogs: %w", err))
 	}
 
-	if target != "" && cli.currentLegacyConsole() != nil {
-		cli.redrawLegacyChatView()
+	if target != "" && cli.currentConsole() != nil {
+		cli.redrawChatView()
 	}
 
 	return errors.Join(errs...)

@@ -145,7 +145,7 @@ func inlineImageColsForWidth(width int, cfg inlineImageConfig) int {
 	return maxCols
 }
 
-func (cli *TelegramCLI) renderInlineImageBlock(target string, entry legacyTranscriptEntry, width int, cfg inlineImageConfig) (string, int, bool) {
+func (cli *TelegramCLI) renderInlineImageBlock(target string, entry transcriptEntry, width int, cfg inlineImageConfig) (string, int, bool) {
 	if entry.Image == nil {
 		return "", 0, false
 	}
@@ -177,7 +177,7 @@ func (cli *TelegramCLI) renderInlineImageBlock(target string, entry legacyTransc
 	return strings.Repeat(" ", maxInt(indent, 0)) + sequence, preview.Rows, true
 }
 
-func ensureInlinePreviewImage(target string, entry legacyTranscriptEntry, sourcePath string, cols int, maxRows int) (inlinePreviewImage, error) {
+func ensureInlinePreviewImage(target string, entry transcriptEntry, sourcePath string, cols int, maxRows int) (inlinePreviewImage, error) {
 	path := filepath.Join(previewCacheDirPath(), cachedInlinePreviewFilename(target, entry, cols, maxRows))
 	rows := maxRows
 
@@ -219,14 +219,14 @@ func previewCacheDirPath() string {
 	return dir
 }
 
-func cachedInlinePreviewFilename(target string, entry legacyTranscriptEntry, cols int, maxRows int) string {
+func cachedInlinePreviewFilename(target string, entry transcriptEntry, cols int, maxRows int) string {
 	name := cachedImageFilename(target, entry)
 	ext := filepath.Ext(name)
 	base := strings.TrimSuffix(name, ext)
 	return fmt.Sprintf("%s-inline-%dx%d-preview.png", base, cols, maxRows)
 }
 
-func inlinePreviewName(entry legacyTranscriptEntry) string {
+func inlinePreviewName(entry transcriptEntry) string {
 	if entry.Image != nil && strings.TrimSpace(entry.Image.Name) != "" {
 		return strings.TrimSpace(entry.Image.Name)
 	}

@@ -5,12 +5,12 @@ import (
 	"testing"
 )
 
-func TestRenderActiveLegacyChatViewShowsPendingReplyBanner(t *testing.T) {
+func TestRenderActiveChatViewShowsPendingReplyBanner(t *testing.T) {
 	cli := NewTelegramCLI(1, "hash", t.TempDir()+"/session.json")
 	cli.setCurrentChat("@alice", "Alice")
 	cli.setPendingReply("@alice", &ReplyReference{MessageID: 5, Sender: "Alice", Preview: "hello"})
 
-	view := cli.renderActiveLegacyChatView("Alice", "@alice", []legacyTranscriptEntry{{
+	view := cli.renderActiveChatView("Alice", "@alice", []transcriptEntry{{
 		MessageID: 6,
 		Outgoing:  true,
 		Sender:    "You",

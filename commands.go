@@ -173,7 +173,7 @@ func (cli *TelegramCLI) runUnreadPicker(ctx context.Context) {
 	if !ok {
 		return
 	}
-	if loadErr := cli.ensureLegacyTranscriptContext(ctx, chosen.Target, chosen.Label, unreadTranscriptMinContextEntries); loadErr != nil {
+	if loadErr := cli.ensureTranscriptContext(ctx, chosen.Target, chosen.Label, unreadTranscriptMinContextEntries); loadErr != nil {
 		fmt.Printf("%s %v\n", yellow("Warning:"), loadErr)
 	}
 	cli.activateCachedChat(*chosen, false)
@@ -196,7 +196,7 @@ func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 			case errors.Is(err, context.Canceled):
 				fmt.Println("\nExiting...")
 				return
-			case errors.Is(err, errLegacyPromptInterrupted):
+			case errors.Is(err, errPromptInterrupted):
 				fmt.Println("\nInterrupt received, exiting...")
 				if cli.cancel != nil {
 					cli.cancel()

@@ -31,9 +31,9 @@ func messageOutputFromTGMessageWithReply(cli *TelegramCLI, message *tg.Message, 
 	}
 }
 
-func legacyTranscriptEntryFromMessageOutput(target string, label string, msg MessageOutput) legacyTranscriptEntry {
+func transcriptEntryFromMessageOutput(target string, label string, msg MessageOutput) transcriptEntry {
 	timestamp := time.Unix(msg.Date, 0).Format("15:04:05")
-	entry := legacyTranscriptEntry{
+	entry := transcriptEntry{
 		MessageID: msg.ID,
 		Outgoing:  msg.Outgoing,
 		Sender:    msg.FromName,

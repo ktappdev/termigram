@@ -132,7 +132,7 @@ Key files to know:
 - `config.go`
 - `helpers.go`
 - `interactive_mode.go`
-- `legacy_chat_view.go`
+- `chat_view.go`
 - `build.sh`
 
 ## Current issues

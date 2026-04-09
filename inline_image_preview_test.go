@@ -91,7 +91,7 @@ func TestRenderInlineImageBlockAlignsOutgoingRight(t *testing.T) {
 	writePNG(t, path)
 
 	cli := NewTelegramCLI(1, "hash", filepath.Join(t.TempDir(), "session.json"))
-	block, rows, ok := cli.renderInlineImageBlock("@alice", legacyTranscriptEntry{
+	block, rows, ok := cli.renderInlineImageBlock("@alice", transcriptEntry{
 		MessageID: 6,
 		Outgoing:  true,
 		Header:    "You",
@@ -115,7 +115,7 @@ func TestRenderInlineImageBlockAlignsOutgoingRight(t *testing.T) {
 	}
 }
 
-func TestRenderActiveLegacyChatViewKeepsImagesInFlow(t *testing.T) {
+func TestRenderActiveChatViewKeepsImagesInFlow(t *testing.T) {
 	originalTTYCheck := inlineImageTTYCheck
 	inlineImageTTYCheck = func() bool { return true }
 	defer func() { inlineImageTTYCheck = originalTTYCheck }()
@@ -127,7 +127,7 @@ func TestRenderActiveLegacyChatViewKeepsImagesInFlow(t *testing.T) {
 	writePNG(t, path)
 
 	cli := NewTelegramCLI(1, "hash", filepath.Join(t.TempDir(), "session.json"))
-	view := cli.renderActiveLegacyChatView("Alice", "@alice", []legacyTranscriptEntry{
+	view := cli.renderActiveChatView("Alice", "@alice", []transcriptEntry{
 		{
 			MessageID: 1,
 			Header:    "Alice",

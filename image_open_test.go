@@ -14,14 +14,14 @@ import (
 func TestOpenImageFromCurrentChatDefaultsToLast(t *testing.T) {
 	cli := NewTelegramCLI(1, "hash", t.TempDir()+"/session.json")
 	cli.setCurrentChat("@alice", "Alice")
-	cli.legacyLoaded[normalizeLegacyTranscriptTarget("@alice")] = true
+	cli.transcriptLoaded[normalizeTranscriptTarget("@alice")] = true
 
 	path := filepath.Join(t.TempDir(), "photo.jpg")
 	if err := os.WriteFile(path, []byte("jpg"), 0o644); err != nil {
 		t.Fatalf("write cached image: %v", err)
 	}
 
-	cli.appendLegacyTranscriptEntry("@alice", legacyTranscriptEntry{
+	cli.appendTranscriptEntry("@alice", transcriptEntry{
 		MessageID: 5,
 		Body:      "[image #5] photo.jpg",
 		Image: &ImageAttachment{
@@ -52,7 +52,7 @@ func TestOpenImageFromCurrentChatDefaultsToLast(t *testing.T) {
 
 func TestEnsureImageDownloadedUsesCacheAndReuse(t *testing.T) {
 	cli := NewTelegramCLI(1, "hash", t.TempDir()+"/session.json")
-	entry := legacyTranscriptEntry{
+	entry := transcriptEntry{
 		MessageID: 9,
 		Image: &ImageAttachment{
 			Kind:     imageKind,
@@ -72,7 +72,7 @@ func TestEnsureImageDownloadedUsesCacheAndReuse(t *testing.T) {
 	defer func() { imageDownloadFunc = originalDownload }()
 
 	var calls int
-	imageDownloadFunc = func(ctx context.Context, cli *TelegramCLI, entry legacyTranscriptEntry, path string) error {
+	imageDownloadFunc = func(ctx context.Context, cli *TelegramCLI, entry transcriptEntry, path string) error {
 		calls++
 		return os.WriteFile(path, []byte("photo"), 0o644)
 	}
@@ -81,7 +81,7 @@ func TestEnsureImageDownloadedUsesCacheAndReuse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ensureImageDownloaded returned error: %v", err)
 	}
-	second, err := cli.ensureImageDownloaded(context.Background(), "@alice", legacyTranscriptEntry{
+	second, err := cli.ensureImageDownloaded(context.Background(), "@alice", transcriptEntry{
 		MessageID: 9,
 		Image: &ImageAttachment{
 			Kind:       imageKind,
@@ -132,7 +132,7 @@ func TestSendImageCachesRemoteSourceForReopen(t *testing.T) {
 	if err := cli.sendImage(context.Background(), "@alice", "Alice", server.URL+"/meme.png", "hello", false); err != nil {
 		t.Fatalf("sendImage returned error: %v", err)
 	}
-	cli.legacyLoaded[normalizeLegacyTranscriptTarget("@alice")] = true
+	cli.transcriptLoaded[normalizeTranscriptTarget("@alice")] = true
 
 	got, err := cli.openImageFromCurrentChat(context.Background(), "last")
 	if err != nil {

@@ -14,19 +14,19 @@ const imagePickerLimit = 25
 var errImagePickerCancelled = errors.New("image open cancelled")
 
 type imagePickerItem struct {
-	Entry     legacyTranscriptEntry
+	Entry     transcriptEntry
 	Title     string
 	Subtitle  string
 	QueryText string
 }
 
 type imagePickerResult struct {
-	Chosen      *legacyTranscriptEntry
+	Chosen      *transcriptEntry
 	Cancelled   bool
 	Interactive bool
 }
 
-func imagePickerItems(entries []legacyTranscriptEntry, limit int) []imagePickerItem {
+func imagePickerItems(entries []transcriptEntry, limit int) []imagePickerItem {
 	if limit <= 0 {
 		limit = imagePickerLimit
 	}
@@ -113,7 +113,7 @@ func filterImagePickerItems(items []imagePickerItem, query string) []imagePicker
 	return filtered
 }
 
-func (cli *TelegramCLI) pickImageEntry(title string, initialQuery string, entries []legacyTranscriptEntry) imagePickerResult {
+func (cli *TelegramCLI) pickImageEntry(title string, initialQuery string, entries []transcriptEntry) imagePickerResult {
 	items := imagePickerItems(entries, imagePickerLimit)
 	if len(items) == 0 {
 		return imagePickerResult{Interactive: true}

@@ -5,12 +5,12 @@ import (
 	"strings"
 )
 
-func (cli *TelegramCLI) writeLegacyOutput(text string) {
+func (cli *TelegramCLI) writeOutput(text string) {
 	if strings.TrimSpace(text) == "" {
 		return
 	}
 
-	if console := cli.currentLegacyConsole(); console != nil {
+	if console := cli.currentConsole(); console != nil {
 		_ = console.WriteString(text)
 		return
 	}

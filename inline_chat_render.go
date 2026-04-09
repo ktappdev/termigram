@@ -4,12 +4,12 @@ import (
 	"strings"
 )
 
-type legacyRenderBlock struct {
+type chatRenderBlock struct {
 	Text string
 	Rows int
 }
 
-func (cli *TelegramCLI) renderLegacyChatViewWithInlineImages(label string, target string, entries []legacyTranscriptEntry, width int, height int, cfg inlineImageConfig, pendingReply string) (string, bool) {
+func (cli *TelegramCLI) renderChatViewWithInlineImages(label string, target string, entries []transcriptEntry, width int, height int, cfg inlineImageConfig, pendingReply string) (string, bool) {
 	if width <= 0 {
 		width = 80
 	}
@@ -17,7 +17,7 @@ func (cli *TelegramCLI) renderLegacyChatViewWithInlineImages(label string, targe
 		height = 2
 	}
 
-	headerRows := legacyChatHeaderRows(label, target, width, pendingReply)
+	headerRows := chatHeaderRows(label, target, width, pendingReply)
 
 	maxRows := height - 1
 	if maxRows < len(headerRows) {
@@ -36,10 +36,10 @@ func (cli *TelegramCLI) renderLegacyChatViewWithInlineImages(label string, targe
 		return strings.Join(rows[:maxRows], "\n"), true
 	}
 
-	blocks := make([]legacyRenderBlock, 0, len(entries))
+	blocks := make([]chatRenderBlock, 0, len(entries))
 	usedRows := 0
 	for i := len(entries) - 1; i >= 0; i-- {
-		block, ok := cli.renderLegacyEntryBlock(target, entries[i], width, cfg)
+		block, ok := cli.renderChatEntryBlock(target, entries[i], width, cfg)
 		if !ok {
 			return "", false
 		}
@@ -85,7 +85,7 @@ func (cli *TelegramCLI) renderLegacyChatViewWithInlineImages(label string, targe
 	return strings.Join(rows, "\n"), true
 }
 
-func (cli *TelegramCLI) renderLegacyEntryBlock(target string, entry legacyTranscriptEntry, width int, cfg inlineImageConfig) (legacyRenderBlock, bool) {
+func (cli *TelegramCLI) renderChatEntryBlock(target string, entry transcriptEntry, width int, cfg inlineImageConfig) (chatRenderBlock, bool) {
 	inlineBody := entry.Body
 	imageBlock := ""
 	imageRows := 0
@@ -107,7 +107,7 @@ func (cli *TelegramCLI) renderLegacyEntryBlock(target string, entry legacyTransc
 		rows += imageRows
 	}
 
-	return legacyRenderBlock{
+	return chatRenderBlock{
 		Text: text,
 		Rows: rows,
 	}, true

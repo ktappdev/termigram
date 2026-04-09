@@ -8,13 +8,13 @@ import (
 	"golang.org/x/term"
 )
 
-type legacyConsole struct {
+type console struct {
 	fd       int
 	terminal *term.Terminal
 	oldState *term.State
 }
 
-func newLegacyConsole(prompt string) (*legacyConsole, error) {
+func newConsole(prompt string) (*console, error) {
 	fd := int(os.Stdin.Fd())
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
@@ -32,7 +32,7 @@ func newLegacyConsole(prompt string) (*legacyConsole, error) {
 	terminal := term.NewTerminal(rw, prompt)
 	terminal.SetBracketedPasteMode(true)
 
-	console := &legacyConsole{
+	console := &console{
 		fd:       fd,
 		terminal: terminal,
 		oldState: oldState,
@@ -41,7 +41,7 @@ func newLegacyConsole(prompt string) (*legacyConsole, error) {
 	return console, nil
 }
 
-func (c *legacyConsole) Close() error {
+func (c *console) Close() error {
 	if c == nil {
 		return nil
 	}
@@ -49,15 +49,15 @@ func (c *legacyConsole) Close() error {
 	return term.Restore(c.fd, c.oldState)
 }
 
-func (c *legacyConsole) ReadLine() (string, error) {
+func (c *console) ReadLine() (string, error) {
 	return c.terminal.ReadLine()
 }
 
-func (c *legacyConsole) SetPrompt(prompt string) {
+func (c *console) SetPrompt(prompt string) {
 	c.terminal.SetPrompt(prompt)
 }
 
-func (c *legacyConsole) Resize() error {
+func (c *console) Resize() error {
 	width, height, err := term.GetSize(c.fd)
 	if err != nil {
 		return err
@@ -65,7 +65,7 @@ func (c *legacyConsole) Resize() error {
 	return c.terminal.SetSize(width, height)
 }
 
-func (c *legacyConsole) WriteString(text string) error {
+func (c *console) WriteString(text string) error {
 	if text == "" {
 		return nil
 	}
@@ -76,7 +76,7 @@ func (c *legacyConsole) WriteString(text string) error {
 	return err
 }
 
-func (c *legacyConsole) WriteBlock(text string) error {
+func (c *console) WriteBlock(text string) error {
 	if text == "" {
 		return nil
 	}

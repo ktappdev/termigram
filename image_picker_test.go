@@ -3,7 +3,7 @@ package main
 import "testing"
 
 func TestImagePickerItemsUsesNewestImagesFirst(t *testing.T) {
-	items := imagePickerItems([]legacyTranscriptEntry{
+	items := imagePickerItems([]transcriptEntry{
 		{
 			MessageID: 1,
 			Header:    "Alice",

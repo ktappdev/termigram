@@ -18,7 +18,7 @@ var (
 )
 
 func main() {
-	remainingArgs, rootMode, uiMode, handled, err := parseRootFlags(os.Args[1:])
+	remainingArgs, rootMode, handled, err := parseRootFlags(os.Args[1:])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n\n", err)
 		printRootHelp()
@@ -52,7 +52,7 @@ func main() {
 	}
 	_ = selectedMode // Always "user" after ResolveMode succeeds
 
-	if err := runInteractiveMode(cfg, uiMode); err != nil {
+	if err := runInteractiveMode(cfg); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -72,35 +72,33 @@ func printConfigErrorAndExit(err error) {
 	os.Exit(1)
 }
 
-func parseRootFlags(args []string) (remaining []string, mode string, uiMode string, handled bool, err error) {
+func parseRootFlags(args []string) (remaining []string, mode string, handled bool, err error) {
 	fs := flag.NewFlagSet("termigram", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 
 	var help bool
 	var version bool
 	var modeFlag string
-	var uiFlag string
 	fs.BoolVar(&help, "help", false, "Show help")
 	fs.BoolVar(&help, "h", false, "Show help")
 	fs.BoolVar(&version, "version", false, "Show version")
 	fs.BoolVar(&version, "v", false, "Show version")
 	fs.StringVar(&modeFlag, "mode", "", "Auth mode: user (default: user)")
-	fs.StringVar(&uiFlag, "ui", "auto", "Interactive UI: auto or legacy")
 
 	if err := fs.Parse(args); err != nil {
-		return nil, "", "", false, err
+		return nil, "", false, err
 	}
 
 	if help {
 		printRootHelp()
-		return nil, "", "", true, nil
+		return nil, "", true, nil
 	}
 	if version {
 		fmt.Printf("termigram %s\n", appVersion)
-		return nil, "", "", true, nil
+		return nil, "", true, nil
 	}
 
-	return fs.Args(), modeFlag, uiFlag, false, nil
+	return fs.Args(), modeFlag, false, nil
 }
 
 func createBackend(cfg Config) *UserBackend {
@@ -203,7 +201,7 @@ func printRootHelp() {
 	fmt.Println(`termigram - Telegram MTProto CLI
 
 Usage:
-  ./termigram [--help|-h] [--version|-v] [--ui auto|legacy]
+  ./termigram [--help|-h] [--version|-v]
   ./termigram                                          # interactive mode
   ./termigram <command> [options]                      # one-shot mode
 
@@ -237,7 +235,6 @@ Interactive quick start:
 Global flags:
   -h, --help       Show this help
   -v, --version    Show app version
-  --ui MODE        Interactive UI: auto (default legacy) or legacy
 
 Inline image preview env:
   TERMIGRAM_INLINE_IMAGES=auto|on|off

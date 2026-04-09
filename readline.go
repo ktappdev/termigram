@@ -12,7 +12,7 @@ import (
 	"golang.org/x/term"
 )
 
-var errLegacyPromptInterrupted = errors.New("legacy prompt interrupted")
+var errPromptInterrupted = errors.New("prompt interrupted")
 
 func (cli *TelegramCLI) readInteractiveLine(ctx context.Context, sigChan <-chan os.Signal) (string, error) {
 	if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
@@ -20,7 +20,7 @@ func (cli *TelegramCLI) readInteractiveLine(ctx context.Context, sigChan <-chan 
 		return strings.TrimSpace(line), err
 	}
 
-	console, err := newLegacyConsole(cli.promptLabel())
+	console, err := newConsole(cli.promptLabel())
 	if err != nil {
 		line, readErr := cli.reader.ReadString('\n')
 		if readErr != nil {
@@ -29,16 +29,16 @@ func (cli *TelegramCLI) readInteractiveLine(ctx context.Context, sigChan <-chan 
 		return strings.TrimSpace(line), nil
 	}
 
-	cli.setLegacyConsole(console)
+	cli.setConsole(console)
 	defer func() {
-		cli.setLegacyConsole(nil)
+		cli.setConsole(nil)
 		_ = console.Close()
 	}()
 
 	target, label := cli.currentChat()
 	if target != "" {
-		loadErr := cli.ensureLegacyTranscript(ctx, target, label)
-		cli.redrawLegacyChatView()
+		loadErr := cli.ensureTranscript(ctx, target, label)
+		cli.redrawChatView()
 		if loadErr != nil {
 			_ = console.WriteString(fmt.Sprintf("Warning: could not load recent chat history: %v", loadErr))
 		}
@@ -56,13 +56,13 @@ func (cli *TelegramCLI) readInteractiveLine(ctx context.Context, sigChan <-chan 
 			return "", ctx.Err()
 		case sig := <-sigChan:
 			if sig == syscall.SIGWINCH {
-				cli.handleLegacyResize()
+				cli.handleChatResize()
 				continue
 			}
-			return "", errLegacyPromptInterrupted
+			return "", errPromptInterrupted
 		case result := <-inputChan:
 			if errors.Is(result.err, io.EOF) {
-				return "", errLegacyPromptInterrupted
+				return "", errPromptInterrupted
 			}
 			if result.err != nil {
 				return "", result.err

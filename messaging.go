@@ -291,9 +291,9 @@ func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text str
 	preview := messagePreviewText(text, nil)
 	cli.setCurrentChat(targetLabel, displayName)
 	cli.markChatActivity(targetLabel, preview, now)
-	_ = cli.ensureLegacyTranscript(ctx, targetLabel, displayName)
+	_ = cli.ensureTranscript(ctx, targetLabel, displayName)
 
-	entry := legacyTranscriptEntry{
+	entry := transcriptEntry{
 		MessageID: messageID,
 		Outgoing:  true,
 		Sender:    "You",
@@ -304,7 +304,7 @@ func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text str
 		Preview:   preview,
 		Reply:     cloneReplyReference(replyRef),
 	}
-	cli.appendLegacyTranscriptEntry(targetLabel, entry)
+	cli.appendTranscriptEntry(targetLabel, entry)
 
 	if interactiveTTYAvailable() {
 		return
@@ -358,11 +358,11 @@ func (cli *TelegramCLI) sendImage(ctx context.Context, target string, label stri
 	}
 	cli.recordOutgoingImage(target, label, messageID, attachment, caption, replyRef)
 	if interactiveTTYAvailable() {
-		cli.redrawLegacyChatView()
+		cli.redrawChatView()
 		return nil
 	}
 
-	entry := legacyTranscriptEntry{
+	entry := transcriptEntry{
 		MessageID: messageID,
 		Outgoing:  true,
 		Sender:    "You",
@@ -448,19 +448,19 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 		cli.clearChatUnreadCount(fromTarget)
 	}
 
-	entry := legacyTranscriptEntryFromMessageOutput(fromTarget, fromName, out)
+	entry := transcriptEntryFromMessageOutput(fromTarget, fromName, out)
 	entry.Header = incomingTranscriptHeader(fromName, fromTarget, mismatch)
-	cli.appendLegacyTranscriptEntry(fromTarget, entry)
+	cli.appendTranscriptEntry(fromTarget, entry)
 
-	if !mismatch && cli.currentLegacyConsole() != nil {
-		cli.redrawLegacyChatView()
+	if !mismatch && cli.currentConsole() != nil {
+		cli.redrawChatView()
 		return
 	}
 	if !mismatch && interactiveTTYAvailable() {
 		return
 	}
 
-	if console := cli.currentLegacyConsole(); console != nil {
+	if console := cli.currentConsole(); console != nil {
 		text := renderTranscriptBubbleForWidth(false, entry.Header, entry.Body, entry.Meta, transcriptWidth())
 		if mismatch {
 			focusLabel := activeLabel

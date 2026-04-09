@@ -2,14 +2,15 @@ package main
 
 import (
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/mattn/go-runewidth"
 	"golang.org/x/term"
 )
 
-func (cli *TelegramCLI) redrawLegacyChatView() {
-	console := cli.currentLegacyConsole()
+func (cli *TelegramCLI) redrawChatView() {
+	console := cli.currentConsole()
 	if console == nil {
 		return
 	}
@@ -21,14 +22,14 @@ func (cli *TelegramCLI) redrawLegacyChatView() {
 
 	_ = console.Resize()
 
-	width, height := currentLegacyTerminalSize()
-	entries, _ := cli.legacyTranscriptSnapshot(target)
-	view := cli.renderActiveLegacyChatView(label, target, entries, width, height)
+	width, height := currentTerminalSize()
+	entries, _ := cli.transcriptSnapshot(target)
+	view := cli.renderActiveChatView(label, target, entries, width, height)
 	_ = console.WriteBlock("\033[2J\033[H" + view + "\n")
 }
 
-func (cli *TelegramCLI) handleLegacyResize() {
-	console := cli.currentLegacyConsole()
+func (cli *TelegramCLI) handleChatResize() {
+	console := cli.currentConsole()
 	if console == nil {
 		return
 	}
@@ -38,10 +39,10 @@ func (cli *TelegramCLI) handleLegacyResize() {
 	if target == "" {
 		return
 	}
-	cli.redrawLegacyChatView()
+	cli.redrawChatView()
 }
 
-func currentLegacyTerminalSize() (int, int) {
+func currentTerminalSize() (int, int) {
 	width, height, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil || width <= 0 || height <= 0 {
 		return 80, 24
@@ -49,7 +50,7 @@ func currentLegacyTerminalSize() (int, int) {
 	return width, height
 }
 
-func renderLegacyChatView(label string, target string, entries []legacyTranscriptEntry, width int, height int) string {
+func renderChatView(label string, target string, entries []transcriptEntry, width int, height int) string {
 	if width <= 0 {
 		width = 80
 	}
@@ -57,7 +58,7 @@ func renderLegacyChatView(label string, target string, entries []legacyTranscrip
 		height = 2
 	}
 
-	headerRows := legacyChatHeaderRows(label, target, width, "")
+	headerRows := chatHeaderRows(label, target, width, "")
 
 	bodyRows := make([]string, 0, len(entries)*4+1)
 	if len(entries) == 0 {
@@ -92,25 +93,31 @@ func renderLegacyChatView(label string, target string, entries []legacyTranscrip
 	return strings.Join(rows, "\n")
 }
 
-func (cli *TelegramCLI) renderActiveLegacyChatView(label string, target string, entries []legacyTranscriptEntry, width int, height int) string {
+func (cli *TelegramCLI) renderActiveChatView(label string, target string, entries []transcriptEntry, width int, height int) string {
 	pendingReply := cli.pendingReplyBanner(target)
 	cfg := currentInlineImageConfig()
 	if !cfg.enabled() {
-		return renderLegacyChatViewWithPendingReply(label, target, entries, width, height, pendingReply)
+		return renderChatViewWithPendingReply(label, target, entries, width, height, pendingReply)
 	}
 
-	view, ok := cli.renderLegacyChatViewWithInlineImages(label, target, entries, width, height, cfg, pendingReply)
+	view, ok := cli.renderChatViewWithInlineImages(label, target, entries, width, height, cfg, pendingReply)
 	if !ok {
-		return renderLegacyChatViewWithPendingReply(label, target, entries, width, height, pendingReply)
+		return renderChatViewWithPendingReply(label, target, entries, width, height, pendingReply)
 	}
 	return view
+}
+
+var ansiEscapeSequence = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func stripANSI(text string) string {
+	return ansiEscapeSequence.ReplaceAllString(text, "")
 }
 
 func truncateVisibleWidth(text string, width int) string {
 	if width <= 0 {
 		return ""
 	}
-	if runewidth.StringWidth(text) <= width {
+	if runewidth.StringWidth(stripANSI(text)) <= width {
 		return text
 	}
 	if width == 1 {
@@ -121,7 +128,7 @@ func truncateVisibleWidth(text string, width int) string {
 	return chunk + "…"
 }
 
-func renderLegacyChatViewWithPendingReply(label string, target string, entries []legacyTranscriptEntry, width int, height int, pendingReply string) string {
+func renderChatViewWithPendingReply(label string, target string, entries []transcriptEntry, width int, height int, pendingReply string) string {
 	if width <= 0 {
 		width = 80
 	}
@@ -129,7 +136,7 @@ func renderLegacyChatViewWithPendingReply(label string, target string, entries [
 		height = 2
 	}
 
-	headerRows := legacyChatHeaderRows(label, target, width, pendingReply)
+	headerRows := chatHeaderRows(label, target, width, pendingReply)
 
 	bodyRows := make([]string, 0, len(entries)*4+1)
 	if len(entries) == 0 {

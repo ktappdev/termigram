@@ -18,7 +18,7 @@ var imageDownloadFunc = downloadImageAttachment
 var openLocalPath = defaultOpenLocalPath
 var cacheOutboundImageFunc = cacheOutboundImageCopy
 
-func (cli *TelegramCLI) ensureImageDownloaded(ctx context.Context, target string, entry legacyTranscriptEntry) (string, error) {
+func (cli *TelegramCLI) ensureImageDownloaded(ctx context.Context, target string, entry transcriptEntry) (string, error) {
 	if entry.Image == nil {
 		return "", fmt.Errorf("message does not contain an image")
 	}
@@ -41,14 +41,14 @@ func (cli *TelegramCLI) ensureImageDownloaded(ctx context.Context, target string
 	path := filepath.Join(dir, filename)
 	if fileExists(path) {
 		entry.Image.CachedPath = path
-		cli.updateLegacyImageCachePath(target, entry.MessageID, path)
+		cli.updateImageCachePath(target, entry.MessageID, path)
 		return path, nil
 	}
 
 	if err := imageDownloadFunc(ensureContext(ctx), cli, entry, path); err != nil {
 		return "", err
 	}
-	cli.updateLegacyImageCachePath(target, entry.MessageID, path)
+	cli.updateImageCachePath(target, entry.MessageID, path)
 	return path, nil
 }
 
@@ -65,7 +65,7 @@ func mediaCacheDir() (string, error) {
 	return base, nil
 }
 
-func cachedImageFilename(target string, entry legacyTranscriptEntry) string {
+func cachedImageFilename(target string, entry transcriptEntry) string {
 	name := "image"
 	if entry.Image != nil && strings.TrimSpace(entry.Image.Name) != "" {
 		name = filepath.Base(entry.Image.Name)
@@ -98,7 +98,7 @@ func sanitizeFilename(value string) string {
 	return value
 }
 
-func downloadImageAttachment(ctx context.Context, cli *TelegramCLI, entry legacyTranscriptEntry, path string) error {
+func downloadImageAttachment(ctx context.Context, cli *TelegramCLI, entry transcriptEntry, path string) error {
 	if entry.Image == nil || entry.Image.Location == nil {
 		return fmt.Errorf("image is not downloadable")
 	}
@@ -144,7 +144,7 @@ func cacheOutboundImageCopy(target string, attachment *ImageAttachment, sourcePa
 	if err != nil {
 		return "", err
 	}
-	entry := legacyTranscriptEntry{
+	entry := transcriptEntry{
 		Image: attachment,
 	}
 	filename := cachedImageFilename(target, entry)

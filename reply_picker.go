@@ -18,19 +18,19 @@ const (
 var errReplyPickerCancelled = errors.New("reply selection cancelled")
 
 type replyPickerItem struct {
-	Entry     legacyTranscriptEntry
+	Entry     transcriptEntry
 	Title     string
 	Subtitle  string
 	QueryText string
 }
 
 type replyPickerResult struct {
-	Chosen      *legacyTranscriptEntry
+	Chosen      *transcriptEntry
 	Cancelled   bool
 	Interactive bool
 }
 
-func replyPickerItems(entries []legacyTranscriptEntry, limit int) []replyPickerItem {
+func replyPickerItems(entries []transcriptEntry, limit int) []replyPickerItem {
 	if limit <= 0 {
 		limit = replyPickerLimit
 	}
@@ -77,7 +77,7 @@ func filterReplyPickerItems(items []replyPickerItem, query string) []replyPicker
 	return filtered
 }
 
-func (cli *TelegramCLI) pickReplyEntry(title string, initialQuery string, entries []legacyTranscriptEntry) replyPickerResult {
+func (cli *TelegramCLI) pickReplyEntry(title string, initialQuery string, entries []transcriptEntry) replyPickerResult {
 	items := replyPickerItems(entries, replyPickerLimit)
 	if len(items) == 0 {
 		return replyPickerResult{Interactive: true}
@@ -204,11 +204,11 @@ func (cli *TelegramCLI) selectReplyTarget(ctx context.Context, selector string) 
 	if target == "" {
 		return nil, fmt.Errorf("no active chat; switch chats with \\to or \\msg first")
 	}
-	if err := cli.ensureLegacyTranscriptContext(ctx, target, label, replyPickerContextEntries); err != nil {
+	if err := cli.ensureTranscriptContext(ctx, target, label, replyPickerContextEntries); err != nil {
 		return nil, err
 	}
 
-	entries, _ := cli.legacyTranscriptSnapshot(target)
+	entries, _ := cli.transcriptSnapshot(target)
 	if len(entries) == 0 {
 		return nil, fmt.Errorf("no messages available for the active chat")
 	}
@@ -236,7 +236,7 @@ func (cli *TelegramCLI) selectReplyTarget(ctx context.Context, selector string) 
 	default:
 		messageID, err := parseMessageID(selector)
 		if err == nil {
-			entry, ok := findLegacyEntryByID(entries, messageID)
+			entry, ok := findTranscriptEntryByID(entries, messageID)
 			if !ok || entry.MessageID <= 0 {
 				return nil, fmt.Errorf("message %d not found in the active chat transcript", messageID)
 			}

@@ -50,7 +50,7 @@ func messagePreviewText(text string, attachment *ImageAttachment) string {
 	return imagePreviewText(attachment, text)
 }
 
-func entryPreviewText(entry legacyTranscriptEntry) string {
+func entryPreviewText(entry transcriptEntry) string {
 	if preview := normalizeReplyPreview(entry.Preview); preview != "" {
 		return preview
 	}
