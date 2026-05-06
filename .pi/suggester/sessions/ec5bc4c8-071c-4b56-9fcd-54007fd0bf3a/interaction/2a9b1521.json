@@ -1,0 +1,23 @@
+{
+  "stateVersion": 9,
+  "lastSuggestion": {
+    "text": "oh right, sorry - i meant the architecture doc task. yes, let's do that.",
+    "shownAt": "2026-04-10T00:50:26.632Z",
+    "turnId": "2a9b1521",
+    "sourceLeafId": "2a9b1521",
+    "variantName": "default",
+    "strategy": "compact",
+    "requestedStrategy": "compact"
+  },
+  "steeringHistory": [
+    {
+      "turnId": "ebbe1e18",
+      "suggestedPrompt": "Help me draft a task for architecture documentation.",
+      "actualUserPrompt": "what do you think opf this idea?",
+      "classification": "changed_course",
+      "similarity": 0.19047619047619047,
+      "timestamp": "2026-04-10T00:50:20.138Z"
+    }
+  ],
+  "turnsSinceLastStalenessCheck": 2
+}

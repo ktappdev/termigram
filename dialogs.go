@@ -36,6 +36,12 @@ func (cli *TelegramCLI) fetchDialogs(ctx context.Context, limit int, unreadOnly 
 		return nil, fmt.Errorf("failed to get dialogs: %w", err)
 	}
 
+	return processDialogsResponse(resp, cli, unreadOnly)
+}
+
+// processDialogsResponse handles the MessagesDialogsClass type switch from fetchDialogs.
+// Extracted for testability — can be called directly with synthetic response values.
+func processDialogsResponse(resp tg.MessagesDialogsClass, cli *TelegramCLI, unreadOnly bool) ([]CachedChat, error) {
 	payload, ok := resp.(dialogsEnvelope)
 	if !ok {
 		return nil, fmt.Errorf("unsupported dialogs response type: %T", resp)
@@ -83,9 +89,6 @@ func (cli *TelegramCLI) fetchDialogs(ctx context.Context, limit int, unreadOnly 
 		cli.setChatUnreadCount(chat.Target, dialog.UnreadCount)
 
 		out = append(out, chat)
-		if limit > 0 && len(out) >= limit {
-			break
-		}
 	}
 
 	return out, nil

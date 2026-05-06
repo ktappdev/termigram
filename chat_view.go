@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -10,7 +11,7 @@ import (
 )
 
 func (cli *TelegramCLI) redrawChatView() {
-	console := cli.currentConsole()
+	console := cli.transcriptStore.currentConsole()
 	if console == nil {
 		return
 	}
@@ -20,21 +21,27 @@ func (cli *TelegramCLI) redrawChatView() {
 		return
 	}
 
-	_ = console.Resize()
+	if err := console.Resize(); err != nil {
+		fmt.Fprintf(os.Stderr, "termigram: resize chat console: %v\n", err)
+	}
 
 	width, height := currentTerminalSize()
-	entries, _ := cli.transcriptSnapshot(target)
+	entries, _ := cli.transcriptStore.transcriptSnapshot(target)
 	view := cli.renderActiveChatView(label, target, entries, width, height)
-	_ = console.WriteBlock("\033[2J\033[H" + view + "\n")
+	if err := console.WriteBlock("\033[2J\033[H" + view + "\n"); err != nil {
+		fmt.Fprintf(os.Stderr, "termigram: write chat view: %v\n", err)
+	}
 }
 
 func (cli *TelegramCLI) handleChatResize() {
-	console := cli.currentConsole()
+	console := cli.transcriptStore.currentConsole()
 	if console == nil {
 		return
 	}
 
-	_ = console.Resize()
+	if err := console.Resize(); err != nil {
+		fmt.Fprintf(os.Stderr, "termigram: resize chat console: %v\n", err)
+	}
 	target, _ := cli.currentChat()
 	if target == "" {
 		return
@@ -95,7 +102,7 @@ func renderChatView(label string, target string, entries []transcriptEntry, widt
 
 func (cli *TelegramCLI) renderActiveChatView(label string, target string, entries []transcriptEntry, width int, height int) string {
 	pendingReply := cli.pendingReplyBanner(target)
-	cfg := currentInlineImageConfig()
+	cfg := cli.currentInlineImageConfig()
 	if !cfg.enabled() {
 		return renderChatViewWithPendingReply(label, target, entries, width, height, pendingReply)
 	}

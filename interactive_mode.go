@@ -11,6 +11,6 @@ func interactiveTTYAvailable() bool {
 }
 
 func runInteractiveMode(cfg Config) error {
-	cli := NewTelegramCLI(cfg.TelegramAppID, cfg.TelegramAppHash, cfg.SessionPath)
+	cli := NewTelegramCLIWithConfig(cfg)
 	return cli.RunInteractive()
 }

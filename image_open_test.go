@@ -14,14 +14,14 @@ import (
 func TestOpenImageFromCurrentChatDefaultsToLast(t *testing.T) {
 	cli := NewTelegramCLI(1, "hash", t.TempDir()+"/session.json")
 	cli.setCurrentChat("@alice", "Alice")
-	cli.transcriptLoaded[normalizeTranscriptTarget("@alice")] = true
+	cli.transcriptStore.transcriptLoaded[normalizeTranscriptTarget("@alice")] = true
 
 	path := filepath.Join(t.TempDir(), "photo.jpg")
 	if err := os.WriteFile(path, []byte("jpg"), 0o644); err != nil {
 		t.Fatalf("write cached image: %v", err)
 	}
 
-	cli.appendTranscriptEntry("@alice", transcriptEntry{
+	cli.transcriptStore.appendTranscriptEntry("@alice", transcriptEntry{
 		MessageID: 5,
 		Body:      "[image #5] photo.jpg",
 		Image: &ImageAttachment{
@@ -32,11 +32,11 @@ func TestOpenImageFromCurrentChatDefaultsToLast(t *testing.T) {
 		},
 	})
 
-	originalOpen := openLocalPath
-	defer func() { openLocalPath = originalOpen }()
+	originalOpen := cli.openLocalPath
+	defer func() { cli.openLocalPath = originalOpen }()
 
 	var opened string
-	openLocalPath = func(path string) error {
+	cli.openLocalPath = func(path string) error {
 		opened = path
 		return nil
 	}
@@ -68,11 +68,11 @@ func TestEnsureImageDownloadedUsesCacheAndReuse(t *testing.T) {
 	expectedPath := filepath.Join(dir, cachedImageFilename("@alice", entry))
 	_ = os.Remove(expectedPath)
 
-	originalDownload := imageDownloadFunc
-	defer func() { imageDownloadFunc = originalDownload }()
+	originalDownload := cli.imageDownloadFunc
+	defer func() { cli.imageDownloadFunc = originalDownload }()
 
 	var calls int
-	imageDownloadFunc = func(ctx context.Context, cli *TelegramCLI, entry transcriptEntry, path string) error {
+	cli.imageDownloadFunc = func(ctx context.Context, cli *TelegramCLI, entry transcriptEntry, path string) error {
 		calls++
 		return os.WriteFile(path, []byte("photo"), 0o644)
 	}
@@ -112,19 +112,19 @@ func TestSendImageCachesRemoteSourceForReopen(t *testing.T) {
 	cli := NewTelegramCLI(1, "hash", t.TempDir()+"/session.json")
 	cli.setCurrentChat("@alice", "Alice")
 
-	originalSend := sendPreparedImageWithBackend
-	originalOpen := openLocalPath
+	originalSend := cli.sendPreparedImageWithBackend
+	originalOpen := cli.openLocalPath
 	defer func() {
-		sendPreparedImageWithBackend = originalSend
-		openLocalPath = originalOpen
+		cli.sendPreparedImageWithBackend = originalSend
+		cli.openLocalPath = originalOpen
 	}()
 
-	sendPreparedImageWithBackend = func(ctx context.Context, backend *UserBackend, target string, prepared preparedImageSource, caption string, opts SendOptions) (int64, error) {
+	cli.sendPreparedImageWithBackend = func(ctx context.Context, backend *UserBackend, target string, prepared preparedImageSource, caption string, opts SendOptions) (int64, error) {
 		return 321, nil
 	}
 
 	var opened string
-	openLocalPath = func(path string) error {
+	cli.openLocalPath = func(path string) error {
 		opened = path
 		return nil
 	}
@@ -132,7 +132,7 @@ func TestSendImageCachesRemoteSourceForReopen(t *testing.T) {
 	if err := cli.sendImage(context.Background(), "@alice", "Alice", server.URL+"/meme.png", "hello", false); err != nil {
 		t.Fatalf("sendImage returned error: %v", err)
 	}
-	cli.transcriptLoaded[normalizeTranscriptTarget("@alice")] = true
+	cli.transcriptStore.transcriptLoaded[normalizeTranscriptTarget("@alice")] = true
 
 	got, err := cli.openImageFromCurrentChat(context.Background(), "last")
 	if err != nil {

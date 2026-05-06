@@ -1,0 +1,43 @@
+# golangci-lint configuration for Go 1.21
+# See https://golangci-lint.run/usage/configuration/
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - revive
+    - staticcheck
+    - unused
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: false
+
+  govet:
+    enable-all: true
+    disable:
+      - shadow
+
+  revive:
+    rules:
+      - name: exported
+      - name: package-comments
+        severity: warning
+        disabled: false
+
+  misspell:
+    locale: US
+
+run:
+  timeout: 5m
+  go: '1.21'
+
+issues:
+  # Exclude very common lint issues that are fine in practice
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0

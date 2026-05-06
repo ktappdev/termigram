@@ -15,13 +15,15 @@ const (
 	interactiveResumeDialogLimit   = 50
 )
 
-var interactiveResumeNow = time.Now
-var interactiveResumeDialogRefresher = func(ctx context.Context, cli *TelegramCLI, limit int) ([]CachedChat, error) {
-	return cli.fetchDialogs(ctx, limit, false)
+func (cli *TelegramCLI) interactiveResumeIdleLimit() time.Duration {
+	if cli != nil && cli.config.InteractiveResumeIdleThreshold > 0 {
+		return cli.config.InteractiveResumeIdleThreshold
+	}
+	return interactiveResumeIdleThreshold
 }
 
 func (cli *TelegramCLI) maybeResumeAfterIdle(ctx context.Context) {
-	idle, shouldResume := cli.recordInteractiveUse(interactiveResumeNow())
+	idle, shouldResume := cli.recordInteractiveUse(cli.nowFunc())
 	if !shouldResume {
 		return
 	}
@@ -33,41 +35,41 @@ func (cli *TelegramCLI) maybeResumeAfterIdle(ctx context.Context) {
 
 func (cli *TelegramCLI) recordInteractiveUse(now time.Time) (time.Duration, bool) {
 	if now.IsZero() {
-		now = interactiveResumeNow()
+		now = cli.nowFunc()
 	}
 
-	cli.mu.Lock()
-	defer cli.mu.Unlock()
+	cli.chatState.mu.Lock()
+	defer cli.chatState.mu.Unlock()
 
-	previous := cli.lastInteractiveUse
-	cli.lastInteractiveUse = now
+	previous := cli.chatState.lastInteractiveUse
+	cli.chatState.lastInteractiveUse = now
 	if previous.IsZero() {
 		return 0, false
 	}
 
 	idle := now.Sub(previous)
-	if idle < interactiveResumeIdleThreshold {
+	if idle < cli.interactiveResumeIdleLimit() {
 		return idle, false
 	}
-	if !cli.lastResumeSync.IsZero() && now.Sub(cli.lastResumeSync) < interactiveResumeCooldown {
+	if !cli.chatState.lastResumeSync.IsZero() && now.Sub(cli.chatState.lastResumeSync) < interactiveResumeCooldown {
 		return idle, false
 	}
 
-	cli.lastResumeSync = now
+	cli.chatState.lastResumeSync = now
 	return idle, true
 }
 
 func (cli *TelegramCLI) resumeInteractiveSession(ctx context.Context, idle time.Duration, force bool) error {
-	if !force && idle < interactiveResumeIdleThreshold {
+	if !force && idle < cli.interactiveResumeIdleLimit() {
 		return nil
 	}
 
-	now := interactiveResumeNow()
+	now := cli.nowFunc()
 	if force {
 		cli.markResumeSync(now)
 	}
 
-	resumeCtx, cancel := context.WithTimeout(ensureContext(ctx), interactiveResumeSyncTimeout)
+	resumeCtx, cancel := context.WithTimeout(ctx, interactiveResumeSyncTimeout)
 	defer cancel()
 
 	return cli.refreshInteractiveState(resumeCtx)
@@ -75,12 +77,12 @@ func (cli *TelegramCLI) resumeInteractiveSession(ctx context.Context, idle time.
 
 func (cli *TelegramCLI) markResumeSync(now time.Time) {
 	if now.IsZero() {
-		now = interactiveResumeNow()
+		now = cli.nowFunc()
 	}
 
-	cli.mu.Lock()
-	defer cli.mu.Unlock()
-	cli.lastResumeSync = now
+	cli.chatState.mu.Lock()
+	defer cli.chatState.mu.Unlock()
+	cli.chatState.lastResumeSync = now
 }
 
 func (cli *TelegramCLI) refreshInteractiveState(ctx context.Context) error {
@@ -88,18 +90,18 @@ func (cli *TelegramCLI) refreshInteractiveState(ctx context.Context) error {
 
 	target, label := cli.currentChat()
 	if target != "" {
-		if err := cli.syncTranscriptContext(ctx, target, label, transcriptResumeFetchLimit); err != nil {
+		if err := cli.transcriptStore.syncTranscriptContext(ctx, cli, target, label, transcriptResumeFetchLimit); err != nil {
 			errs = append(errs, fmt.Errorf("refresh active chat: %w", err))
 		} else {
 			cli.clearChatUnreadCount(target)
 		}
 	}
 
-	if _, err := interactiveResumeDialogRefresher(ctx, cli, interactiveResumeDialogLimit); err != nil {
+	if _, err := cli.interactiveResumeDialogRefresher(ctx, cli, interactiveResumeDialogLimit); err != nil {
 		errs = append(errs, fmt.Errorf("refresh dialogs: %w", err))
 	}
 
-	if target != "" && cli.currentConsole() != nil {
+	if target != "" && cli.transcriptStore.currentConsole() != nil {
 		cli.redrawChatView()
 	}
 
@@ -112,7 +114,7 @@ func (cli *TelegramCLI) retryInteractiveRPC(ctx context.Context, fn func(context
 		return id, err
 	}
 
-	resumeErr := cli.resumeInteractiveSession(ctx, interactiveResumeIdleThreshold, true)
+	resumeErr := cli.resumeInteractiveSession(ctx, cli.interactiveResumeIdleLimit(), true)
 	retryID, retryErr := fn(ctx)
 	if retryErr == nil {
 		return retryID, nil

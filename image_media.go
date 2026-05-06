@@ -135,11 +135,11 @@ func (cli *TelegramCLI) openImageFromCurrentChat(ctx context.Context, selector s
 		return "", fmt.Errorf("no active chat; switch chats with \\to or \\msg first")
 	}
 
-	if err := cli.ensureTranscript(ctx, target, label); err != nil {
+	if err := cli.transcriptStore.ensureTranscript(ctx, cli, target, label); err != nil {
 		return "", err
 	}
 
-	entries, _ := cli.transcriptSnapshot(target)
+	entries, _ := cli.transcriptStore.transcriptSnapshot(target)
 	if len(entries) == 0 {
 		return "", fmt.Errorf("no messages available for the active chat")
 	}
@@ -202,7 +202,7 @@ func (cli *TelegramCLI) openImageFromCurrentChat(ctx context.Context, selector s
 	if err != nil {
 		return "", err
 	}
-	if err := openLocalPath(path); err != nil {
+	if err := cli.openLocalPath(path); err != nil {
 		return path, err
 	}
 	return path, nil
@@ -231,17 +231,10 @@ func (cli *TelegramCLI) recordOutgoingImage(target string, label string, message
 		Reply:     cloneReplyReference(reply),
 		Image:     attachment,
 	}
-	cli.appendTranscriptEntry(target, entry)
+	cli.transcriptStore.appendTranscriptEntry(target, entry)
 }
 
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
-}
-
-func ensureContext(ctx context.Context) context.Context {
-	if ctx != nil {
-		return ctx
-	}
-	return context.Background()
 }

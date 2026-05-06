@@ -42,6 +42,7 @@ type inlineImageConfig struct {
 	Protocol inlineImageProtocol
 	Cols     int
 	MaxRows  int
+	MaxBytes int
 }
 
 type inlinePreviewImage struct {
@@ -51,11 +52,20 @@ type inlinePreviewImage struct {
 	Name string
 }
 
-var inlineImageEnvLookup = os.Getenv
-var inlineImageTTYCheck = interactiveTTYAvailable
+func (cli *TelegramCLI) inlineImageMaxBytesLimit() int {
+	if cli != nil && cli.config.InlineImageMaxBytes > 0 {
+		return cli.config.InlineImageMaxBytes
+	}
+	return inlineImageMaxBytes
+}
 
-func currentInlineImageConfig() inlineImageConfig {
-	mode := strings.ToLower(strings.TrimSpace(inlineImageEnvLookup("TERMIGRAM_INLINE_IMAGES")))
+func (cli *TelegramCLI) currentInlineImageConfig() inlineImageConfig {
+	envLookup := os.Getenv
+	if cli != nil && cli.envLookup != nil {
+		envLookup = cli.envLookup
+	}
+
+	mode := strings.ToLower(strings.TrimSpace(envLookup("TERMIGRAM_INLINE_IMAGES")))
 	switch mode {
 	case "", inlineImageModeAuto:
 		mode = inlineImageModeAuto
@@ -64,17 +74,18 @@ func currentInlineImageConfig() inlineImageConfig {
 		mode = inlineImageModeAuto
 	}
 
-	forcedProtocol := parseInlineImageProtocol(inlineImageEnvLookup("TERMIGRAM_INLINE_IMAGE_PROTOCOL"))
-	protocol := detectInlineImageProtocol(inlineImageEnvLookup, mode, forcedProtocol)
+	forcedProtocol := parseInlineImageProtocol(envLookup("TERMIGRAM_INLINE_IMAGE_PROTOCOL"))
+	protocol := cli.detectInlineImageProtocol(mode, forcedProtocol)
 
-	cols := parsePositiveEnvInt(inlineImageEnvLookup("TERMIGRAM_INLINE_IMAGE_COLS"), defaultInlineImageCols)
-	maxRows := parsePositiveEnvInt(inlineImageEnvLookup("TERMIGRAM_INLINE_IMAGE_ROWS"), defaultInlineImageRows)
+	cols := parsePositiveEnvInt(envLookup("TERMIGRAM_INLINE_IMAGE_COLS"), defaultInlineImageCols)
+	maxRows := parsePositiveEnvInt(envLookup("TERMIGRAM_INLINE_IMAGE_ROWS"), defaultInlineImageRows)
 
 	return inlineImageConfig{
 		Mode:     mode,
 		Protocol: protocol,
 		Cols:     cols,
 		MaxRows:  maxRows,
+		MaxBytes: cli.inlineImageMaxBytesLimit(),
 	}
 }
 
@@ -89,8 +100,17 @@ func parseInlineImageProtocol(raw string) inlineImageProtocol {
 	}
 }
 
-func detectInlineImageProtocol(getenv func(string) string, mode string, forced inlineImageProtocol) inlineImageProtocol {
-	if mode == inlineImageModeOff || !inlineImageTTYCheck() {
+func (cli *TelegramCLI) detectInlineImageProtocol(mode string, forced inlineImageProtocol) inlineImageProtocol {
+	getenv := os.Getenv
+	if cli != nil && cli.envLookup != nil {
+		getenv = cli.envLookup
+	}
+	checkTTY := interactiveTTYAvailable
+	if cli != nil && cli.ttyCheck != nil {
+		checkTTY = cli.ttyCheck
+	}
+
+	if mode == inlineImageModeOff || !checkTTY() {
 		return inlineImageProtocolNone
 	}
 	if forced != inlineImageProtocolNone {
@@ -155,17 +175,17 @@ func (cli *TelegramCLI) renderInlineImageBlock(target string, entry transcriptEn
 		return "", 0, false
 	}
 
-	path, err := cli.ensureImageDownloaded(ensureContext(cli.ctx), target, entry)
+	path, err := cli.ensureImageDownloaded(cli.ctx, target, entry)
 	if err != nil || !fileExists(path) {
 		return "", 0, false
 	}
 
-	preview, err := ensureInlinePreviewImage(target, entry, path, cols, cfg.MaxRows)
+	preview, err := ensureInlinePreviewImage(target, entry, path, cols, cfg.MaxRows, cfg.MaxBytes)
 	if err != nil {
 		return "", 0, false
 	}
 
-	sequence, err := renderInlineImageSequence(preview, cfg.Protocol)
+	sequence, err := renderInlineImageSequence(preview, cfg.Protocol, cfg.MaxBytes)
 	if err != nil {
 		return "", 0, false
 	}
@@ -177,8 +197,12 @@ func (cli *TelegramCLI) renderInlineImageBlock(target string, entry transcriptEn
 	return strings.Repeat(" ", maxInt(indent, 0)) + sequence, preview.Rows, true
 }
 
-func ensureInlinePreviewImage(target string, entry transcriptEntry, sourcePath string, cols int, maxRows int) (inlinePreviewImage, error) {
-	path := filepath.Join(previewCacheDirPath(), cachedInlinePreviewFilename(target, entry, cols, maxRows))
+func ensureInlinePreviewImage(target string, entry transcriptEntry, sourcePath string, cols int, maxRows int, maxBytes int) (inlinePreviewImage, error) {
+	dir, err := previewCacheDirPath()
+	if err != nil {
+		return inlinePreviewImage{}, err
+	}
+	path := filepath.Join(dir, cachedInlinePreviewFilename(target, entry, cols, maxRows))
 	rows := maxRows
 
 	if fileExists(path) {
@@ -194,7 +218,7 @@ func ensureInlinePreviewImage(target string, entry transcriptEntry, sourcePath s
 		}, nil
 	}
 
-	data, rows, err := buildInlinePreviewPNG(sourcePath, cols, maxRows)
+	data, rows, err := buildInlinePreviewPNGWithLimit(sourcePath, cols, maxRows, maxBytes)
 	if err != nil {
 		return inlinePreviewImage{}, err
 	}
@@ -210,13 +234,17 @@ func ensureInlinePreviewImage(target string, entry transcriptEntry, sourcePath s
 	}, nil
 }
 
-func previewCacheDirPath() string {
+func previewCacheDirPath() (string, error) {
 	dir, err := mediaCacheDir()
-	if err != nil {
-		dir = filepath.Join(os.TempDir(), "termigram-media")
-		_ = os.MkdirAll(dir, 0o755)
+	if err == nil {
+		return dir, nil
 	}
-	return dir
+
+	dir = filepath.Join(os.TempDir(), "termigram-media")
+	if mkdirErr := os.MkdirAll(dir, 0o755); mkdirErr != nil {
+		return "", fmt.Errorf("create inline preview cache directory: %w", mkdirErr)
+	}
+	return dir, nil
 }
 
 func cachedInlinePreviewFilename(target string, entry transcriptEntry, cols int, maxRows int) string {
@@ -234,6 +262,13 @@ func inlinePreviewName(entry transcriptEntry) string {
 }
 
 func buildInlinePreviewPNG(sourcePath string, cols int, maxRows int) ([]byte, int, error) {
+	return buildInlinePreviewPNGWithLimit(sourcePath, cols, maxRows, inlineImageMaxBytes)
+}
+
+func buildInlinePreviewPNGWithLimit(sourcePath string, cols int, maxRows int, maxBytes int) ([]byte, int, error) {
+	if maxBytes <= 0 {
+		maxBytes = inlineImageMaxBytes
+	}
 	src, err := decodeImageFile(sourcePath)
 	if err != nil {
 		return nil, 0, err
@@ -250,7 +285,7 @@ func buildInlinePreviewPNG(sourcePath string, cols int, maxRows int) ([]byte, in
 		if err := png.Encode(&buf, resized); err != nil {
 			return nil, 0, fmt.Errorf("encode inline preview png: %w", err)
 		}
-		if buf.Len() <= inlineImageMaxBytes || (maxWidth <= 96 && maxHeight <= 96) {
+		if buf.Len() <= maxBytes || (maxWidth <= 96 && maxHeight <= 96) {
 			return buf.Bytes(), rows, nil
 		}
 
@@ -258,7 +293,7 @@ func buildInlinePreviewPNG(sourcePath string, cols int, maxRows int) ([]byte, in
 		maxHeight = maxInt((maxHeight*3)/4, 96)
 	}
 
-	return nil, 0, fmt.Errorf("could not reduce inline preview below %d bytes", inlineImageMaxBytes)
+	return nil, 0, fmt.Errorf("could not reduce inline preview below %d bytes", maxBytes)
 }
 
 func decodeImageFile(path string) (image.Image, error) {
@@ -336,12 +371,12 @@ func calculateInlinePreviewRows(width int, height int, cols int, maxRows int) in
 	return rows
 }
 
-func renderInlineImageSequence(preview inlinePreviewImage, protocol inlineImageProtocol) (string, error) {
+func renderInlineImageSequence(preview inlinePreviewImage, protocol inlineImageProtocol, maxBytes int) (string, error) {
 	switch protocol {
 	case inlineImageProtocolKitty:
 		return kittyInlineImageSequence(preview), nil
 	case inlineImageProtocolITerm2:
-		return iTerm2InlineImageSequence(preview)
+		return iTerm2InlineImageSequence(preview, maxBytes)
 	default:
 		return "", fmt.Errorf("unsupported inline image protocol %q", protocol)
 	}
@@ -352,13 +387,16 @@ func kittyInlineImageSequence(preview inlinePreviewImage) string {
 	return fmt.Sprintf("\x1b_Ga=T,f=100,t=f,c=%d,r=%d;%s\x1b\\", preview.Cols, preview.Rows, encodedPath)
 }
 
-func iTerm2InlineImageSequence(preview inlinePreviewImage) (string, error) {
+func iTerm2InlineImageSequence(preview inlinePreviewImage, maxBytes int) (string, error) {
+	if maxBytes <= 0 {
+		maxBytes = inlineImageMaxBytes
+	}
 	data, err := os.ReadFile(preview.Path)
 	if err != nil {
 		return "", fmt.Errorf("read inline preview: %w", err)
 	}
-	if len(data) > inlineImageMaxBytes {
-		return "", fmt.Errorf("inline preview exceeds %d bytes", inlineImageMaxBytes)
+	if len(data) > maxBytes {
+		return "", fmt.Errorf("inline preview exceeds %d bytes", maxBytes)
 	}
 
 	encodedName := base64.StdEncoding.EncodeToString([]byte(filepath.Base(preview.Name)))

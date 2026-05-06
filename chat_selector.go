@@ -18,19 +18,7 @@ type chatPickerResult struct {
 }
 
 func cachedChatFromUser(user *tg.User) CachedChat {
-	label := strings.TrimSpace(user.FirstName + " " + user.LastName)
-	if label == "" {
-		label = user.Username
-	}
-	if label == "" {
-		label = fmt.Sprintf("User %d", user.ID)
-	}
-
-	target := fmt.Sprintf("%d", user.ID)
-	if user.Username != "" {
-		target = "@" + user.Username
-	}
-
+	label, target := buildChatLabel(user)
 	return CachedChat{Label: label, Target: target}
 }
 

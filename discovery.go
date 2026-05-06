@@ -53,11 +53,11 @@ func (cli *TelegramCLI) findMatchingUsernames(prefix string, limit int) []string
 		return nil
 	}
 
-	cli.mu.RLock()
-	defer cli.mu.RUnlock()
+	cli.userCache.mu.RLock()
+	defer cli.userCache.mu.RUnlock()
 
 	var matches []string
-	for username := range cli.usersByName {
+	for username := range cli.userCache.usersByName {
 		if strings.HasPrefix(username, prefix) {
 			matches = append(matches, "@"+username)
 		}

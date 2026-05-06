@@ -1,0 +1,116 @@
+{
+  "seedVersion": 3,
+  "generatedAt": "2026-04-10T00:41:14.088Z",
+  "sourceCommit": "3787c4c248dc6cc0cea4545886000b79e6ae44a0",
+  "generatorVersion": "2026-03-11.2",
+  "seederPromptVersion": "2026-03-11.2",
+  "suggestionPromptVersion": "2026-03-11.1",
+  "configFingerprint": "sha256:1c8240f0803f32e5bd8896c2fabd508516dbefbc88d624d285ba5069a7cccf1a",
+  "projectIntentSummary": "termigram is a lightweight Telegram command-line client written in Go using the MTProto protocol via gotd/td. It aims to provide a dual-mode experience: an interactive terminal UI for human chat and a one-shot CLI mode for scripting and automation. The project emphasizes simplicity, automation-friendliness, and a seamless bridge between manual chat usage and programmatic interaction. It supports modern terminal features like inline image previews (kitty/iTerm2) and uses a saved session model for authentication persistence. The overarching intent is to create a fast, reliable CLI tool that integrates with Telegram for both personal use and automated workflows.",
+  "objectivesSummary": "1. **Dual-mode operation**: Provide both an interactive terminal UI (command/transcript workflow) and a non-interactive one-shot CLI for scripts/AI agents. 2. **Automation support**: Offer JSON output, explicit timeouts, and deterministic parsing for integration with shell scripts, cron jobs, and AI agents. 3. **Seamless authentication**: Support multiple credential sources (env vars, config file, baked-in) with automatic session persistence. 4. **Rich terminal UI**: Deliver a responsive, feature-rich interactive experience including chat switching, image sending, inline previews, and adaptive rendering. 5. **Extensibility and maintainability**: Follow Go conventions, structured error handling, and clear separation between backend Telegram client logic and frontend UI components. 6. **Documentation and contributor workflow**: Maintain clear docs, a dev-branch-based workflow, and integration with beads (bd) for issue tracking.",
+  "constraintsSummary": "1. **Go 1.21+**: Required for building and development. 2. **Telegram API credentials**: Must be obtained via my.telegram.org; three credential sources are supported in order: environment variables, config.json, baked-in build credentials. 3. **Terminal compatibility**: Inline image previews only work with kitty or iTerm2 graphics protocols; other terminals fall back to text. 4. **Session persistence**: Auth session saved to ~/.termigram/session.json by default; chat history is not stored locally (fetched from Telegram). 5. **Branching model**: Documentation and workflow changes must target the `dev` branch. 6. **Issue tracking**: Mandatory use of beads (bd) for all task tracking; no markdown TODOs or external trackers allowed. 7. **Non-interactive shell commands**: Agents must use non-interactive flags (e.g., cp -f, rm -f) to avoid hanging on prompts. 8. **Code style**: Must follow standard Go naming conventions, pass context.Context first, return errors (no panics), wrap errors with context.",
+  "principlesGuidelinesSummary": "1. **Code style**: Use standard Go naming conventions; pass context.Context first; return errors instead of panicking; wrap errors with context; keep UI components focused and composable. 2. **Workflow and contribution**: Start documentation/workflow changes from `dev` branch; use descriptive branch names (feature/*, fix/*, docs/*); reference bd tasks in PRs; run tests and builds before submission. 3. **Issue tracking**: Use beads (bd) exclusively for all task tracking; create issues for discovered work with discovered-from dependencies; use --json flag for programmatic use. 4. **Session completion**: Mandatory push-to-remote workflow before ending work: file issues, run quality gates, update issue status, git pull --rebase, bd dolt push, git push, verify up-to-date. 5. **Documentation**: Keep changes scoped; update existing pages before adding new ones; link related docs; ensure files are concise and under project size limits. 6. **Agent instructions**: Use non-interactive shell commands to avoid hanging; follow bd workflow for claiming and closing tasks; prioritize automation-friendly flags (--json, --timeout).",
+  "implementationStatusSummary": "The project appears to be in active development with a functional CLI, interactive UI, and comprehensive documentation. Key features (dual-mode operation, authentication, image handling, inline previews) are implemented. The codebase is organized into Go packages with clear separation (backend, client, UI components). However, explicit architecture documentation is currently a placeholder in CLAUDE.md, and conventions/patterns are not fully documented. The project uses beads for issue tracking and enforces a strict dev-branch workflow for documentation. Build process is streamlined with Makefile and supports baked-in credentials for maintainers.",
+  "topObjectives": [
+    "Provide dual-mode interactive UI and one-shot CLI for Telegram",
+    "Enable automation with JSON output, timeouts, and script-friendly commands",
+    "Deliver seamless authentication with multiple credential sources and session persistence",
+    "Support rich terminal features including inline image previews",
+    "Maintain a contributor-friendly workflow with beads issue tracking and dev-branch focus"
+  ],
+  "constraints": [
+    "Requires Go 1.21+ and Telegram API credentials",
+    "Inline image previews limited to kitty/iTerm2 terminals",
+    "Must use beads (bd) for all issue tracking; no markdown TODOs",
+    "Documentation changes must target dev branch",
+    "Agents must use non-interactive shell commands to avoid hanging"
+  ],
+  "keyFiles": [
+    {
+      "path": "README.md",
+      "hash": "sha256:3370325fd653b66c7429ef93b7b907d83b5b0b563a7d7419df92027a0f039af1",
+      "whyImportant": "Primary overview of project purpose, features, usage modes, and installation; central source for vision and user-facing documentation.",
+      "category": "vision"
+    },
+    {
+      "path": "docs/features.md",
+      "hash": "sha256:4faef94b07273c229505a5ac32bed80381f3bb83a4d8413761d0c3d8adeb1a57",
+      "whyImportant": "Detailed list of core CLI features, interactive commands, automation capabilities, and terminal UI highlights; elaborates on project objectives.",
+      "category": "vision"
+    },
+    {
+      "path": "main.go",
+      "hash": "sha256:149361415cd3427220072f81dc852ca34ff906518eef95c698c470ec73427939",
+      "whyImportant": "Entry point for the application; demonstrates dual-mode dispatch (interactive vs CLI), flag parsing, and high-level flow; key to understanding runtime architecture.",
+      "category": "code_entrypoint"
+    },
+    {
+      "path": "docs/contributing-detail.md",
+      "hash": "sha256:7936ee39b9af4ed992199c3dc08f87d133bda573b279e7cba40f283d235aaf89",
+      "whyImportant": "Contains detailed contributor workflow, code style conventions, testing procedures, and project structure; primary source for development principles and guidelines.",
+      "category": "principles_guidelines"
+    },
+    {
+      "path": "AGENTS.md",
+      "hash": "sha256:c95efb3bb5eba04f13b3ee5770a74f6cd802f1289f919918982e9722494ec0a4",
+      "whyImportant": "Defines agent-specific instructions, beads (bd) issue tracking workflow, non-interactive command rules, and mandatory session completion protocol; critical for AI agent contributions.",
+      "category": "principles_guidelines"
+    },
+    {
+      "path": "CLAUDE.md",
+      "hash": "sha256:a1fb4db828e0963adc9bbd848cc90f66a4231420f4db7bc20006bb470020ac9d",
+      "whyImportant": "Placeholder for architecture overview and conventions; indicates intentional but currently undocumented areas; signals project maturity and documentation gaps.",
+      "category": "principles_guidelines"
+    },
+    {
+      "path": "client.go",
+      "hash": "sha256:81a7a70d990c43d6d725c48f36f9c840224f5704b722884d54d98af3d8a1bd55",
+      "whyImportant": "Likely contains Telegram MTProto client logic and session management; inferred from contributing-detail.md as a key file for architecture.",
+      "category": "architecture"
+    },
+    {
+      "path": "backend.go",
+      "hash": "sha256:c217d2a82c939d305f60fe1f697cf033d261d301c8781193421535451784a75d",
+      "whyImportant": "Likely implements backend operations bridging UI and Telegram client; inferred from contributing-detail.md as a key file for architecture.",
+      "category": "architecture"
+    }
+  ],
+  "categoryFindings": {
+    "vision": {
+      "found": true,
+      "rationale": "Explicit vision statements not found in a dedicated document, but README.md, docs/index.md, and docs/features.md collectively describe project purpose, goals, and target user experience (lightweight Telegram CLI with dual-mode operation and automation support).",
+      "files": [
+        "README.md",
+        "docs/index.md",
+        "docs/features.md"
+      ]
+    },
+    "architecture": {
+      "found": false,
+      "rationale": "No explicit architecture documentation found beyond a placeholder in CLAUDE.md. The contributing-detail.md lists key files (main.go, client.go, backend.go, etc.) suggesting a modular structure, but no overview or diagrams exist. Architecture must be inferred from code.",
+      "files": [
+        "CLAUDE.md"
+      ]
+    },
+    "principles_guidelines": {
+      "found": true,
+      "rationale": "Found in docs/contributing-detail.md (code style, workflow), AGENTS.md (agent instructions, beads workflow), BRANCH_WORKFLOW.md (branching model), and CLAUDE.md (conventions placeholder). These cover coding conventions, contribution rules, issue tracking, and agent-specific guidelines.",
+      "files": [
+        "docs/contributing-detail.md",
+        "AGENTS.md",
+        "BRANCH_WORKFLOW.md",
+        "CLAUDE.md"
+      ]
+    }
+  },
+  "openQuestions": [
+    "What is the detailed architecture of the backend, client, and UI layers? How are they separated and communicate?",
+    "Are there any design patterns (e.g., MVC, repository) intentionally used in the codebase?",
+    "What are the performance or scalability constraints of the MTProto client implementation?",
+    "How are errors and edge cases (e.g., network failures, rate limits) handled across the codebase?",
+    "What is the roadmap or future feature priorities beyond current implementation?"
+  ],
+  "reseedNotes": "Initial seed created from exploration of repository root, docs, and key markdown/Go files. Vision and principles/guidelines are well-documented; architecture is missing (placeholder). Recommend future agents to read client.go, backend.go, and other core Go files to infer architecture and update CLAUDE.md accordingly.",
+  "lastReseedReason": "initial_missing",
+  "lastChangedFiles": []
+}

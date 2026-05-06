@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 const maxRemoteImageBytes int64 = 20 << 20
@@ -23,7 +22,12 @@ type preparedImageSource struct {
 	Cleanup    func()
 }
 
-var remoteImageHTTPClient = &http.Client{Timeout: 30 * time.Second}
+func (cli *TelegramCLI) maxRemoteImageBytesLimit() int64 {
+	if cli != nil && cli.config.MaxRemoteImageBytes > 0 {
+		return cli.config.MaxRemoteImageBytes
+	}
+	return maxRemoteImageBytes
+}
 
 func normalizeImageSource(raw string) (string, error) {
 	source := strings.TrimSpace(raw)
@@ -89,14 +93,18 @@ func unescapeShellPath(value string) string {
 	return builder.String()
 }
 
-func prepareImageSource(ctx context.Context, raw string) (preparedImageSource, error) {
+func prepareImageSource(ctx context.Context, raw string, httpClient *http.Client) (preparedImageSource, error) {
+	return prepareImageSourceWithLimit(ctx, raw, httpClient, maxRemoteImageBytes)
+}
+
+func prepareImageSourceWithLimit(ctx context.Context, raw string, httpClient *http.Client, remoteLimit int64) (preparedImageSource, error) {
 	source, err := normalizeImageSource(raw)
 	if err != nil {
 		return preparedImageSource{}, err
 	}
 
 	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
-		return prepareRemoteImageSource(ctx, source)
+		return prepareRemoteImageSourceWithLimit(ctx, source, httpClient, remoteLimit)
 	}
 	return prepareLocalImageSource(source)
 }
@@ -130,13 +138,20 @@ func prepareLocalImageSource(path string) (preparedImageSource, error) {
 	}, nil
 }
 
-func prepareRemoteImageSource(ctx context.Context, rawURL string) (preparedImageSource, error) {
-	req, err := http.NewRequestWithContext(ensureContext(ctx), http.MethodGet, rawURL, nil)
+func prepareRemoteImageSource(ctx context.Context, rawURL string, httpClient *http.Client) (preparedImageSource, error) {
+	return prepareRemoteImageSourceWithLimit(ctx, rawURL, httpClient, maxRemoteImageBytes)
+}
+
+func prepareRemoteImageSourceWithLimit(ctx context.Context, rawURL string, httpClient *http.Client, remoteLimit int64) (preparedImageSource, error) {
+	if remoteLimit <= 0 {
+		remoteLimit = maxRemoteImageBytes
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return preparedImageSource{}, fmt.Errorf("build image request: %w", err)
 	}
 
-	resp, err := remoteImageHTTPClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return preparedImageSource{}, fmt.Errorf("download image: %w", err)
 	}
@@ -145,7 +160,7 @@ func prepareRemoteImageSource(ctx context.Context, rawURL string) (preparedImage
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return preparedImageSource{}, fmt.Errorf("download image: unexpected HTTP status %s", resp.Status)
 	}
-	if resp.ContentLength > maxRemoteImageBytes {
+	if resp.ContentLength > remoteLimit {
 		return preparedImageSource{}, fmt.Errorf("download image: response exceeds 20 MiB limit")
 	}
 
@@ -153,7 +168,11 @@ func prepareRemoteImageSource(ctx context.Context, rawURL string) (preparedImage
 	if err != nil {
 		return preparedImageSource{}, fmt.Errorf("create temp directory: %w", err)
 	}
-	cleanup := func() { _ = os.RemoveAll(tmpDir) }
+	cleanup := func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			fmt.Fprintf(os.Stderr, "termigram: remove temp image directory %q: %v\n", tmpDir, err)
+		}
+	}
 
 	name := remoteImageName(rawURL, resp.Header.Get("Content-Type"))
 	targetPath := filepath.Join(tmpDir, name)
@@ -163,7 +182,7 @@ func prepareRemoteImageSource(ctx context.Context, rawURL string) (preparedImage
 		return preparedImageSource{}, fmt.Errorf("create temp image file: %w", err)
 	}
 
-	limited := io.LimitReader(resp.Body, maxRemoteImageBytes+1)
+	limited := io.LimitReader(resp.Body, remoteLimit+1)
 	written, copyErr := io.Copy(file, limited)
 	closeErr := file.Close()
 	if copyErr != nil {
@@ -174,7 +193,7 @@ func prepareRemoteImageSource(ctx context.Context, rawURL string) (preparedImage
 		cleanup()
 		return preparedImageSource{}, fmt.Errorf("close temp image file: %w", closeErr)
 	}
-	if written > maxRemoteImageBytes {
+	if written > remoteLimit {
 		cleanup()
 		return preparedImageSource{}, fmt.Errorf("download image: response exceeds 20 MiB limit")
 	}

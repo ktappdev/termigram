@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "ec5bc4c8-071c-4b56-9fcd-54007fd0bf3a",
+  "sessionFile": "/Users/kentaylor/.pi/agent/sessions/--Users-kentaylor-developer-telegram-cli-termigram--/2026-04-10T00-35-16-069Z_ec5bc4c8-071c-4b56-9fcd-54007fd0bf3a.jsonl",
+  "cwd": "/Users/kentaylor/developer/telegram-cli/termigram",
+  "ignoreLegacyPiSessionEntries": true,
+  "legacyMigration": {
+    "performedAt": "2026-04-10T00:35:18.821Z",
+    "importedLegacyEntries": false,
+    "legacyStateEntryCount": 0,
+    "legacyUsageEntryCount": 0,
+    "note": "Legacy suggester-state/suggester-usage pi session entries were imported once into extension-owned storage and are ignored afterwards."
+  }
+}

@@ -37,20 +37,20 @@ func blue(text string) string   { return colorize(ansiBlue, text) }
 func cyan(text string) string   { return colorize(ansiCyan, text) }
 
 func (cli *TelegramCLI) setCurrentChat(target string, label string) {
-	cli.mu.Lock()
-	defer cli.mu.Unlock()
-	if normalizeReplyTarget(cli.currentChatTarget) != normalizeReplyTarget(target) {
-		cli.pendingReply = nil
-		cli.pendingReplyTarget = ""
+	cli.chatState.mu.Lock()
+	defer cli.chatState.mu.Unlock()
+	if normalizeReplyTarget(cli.chatState.currentChatTarget) != normalizeReplyTarget(target) {
+		cli.chatState.pendingReply = nil
+		cli.chatState.pendingReplyTarget = ""
 	}
-	cli.currentChatTarget = target
-	cli.currentChatLabel = label
+	cli.chatState.currentChatTarget = target
+	cli.chatState.currentChatLabel = label
 }
 
 func (cli *TelegramCLI) currentChat() (target string, label string) {
-	cli.mu.RLock()
-	defer cli.mu.RUnlock()
-	return cli.currentChatTarget, cli.currentChatLabel
+	cli.chatState.mu.RLock()
+	defer cli.chatState.mu.RUnlock()
+	return cli.chatState.currentChatTarget, cli.chatState.currentChatLabel
 }
 
 func (cli *TelegramCLI) promptLabel() string {

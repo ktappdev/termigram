@@ -12,14 +12,14 @@ import (
 func TestSyncTranscriptContextUsesRequestedLimit(t *testing.T) {
 	cli := NewTelegramCLI(1, "hash", t.TempDir()+"/session.json")
 
-	originalLoader := transcriptMessageLoader
-	defer func() { transcriptMessageLoader = originalLoader }()
+	originalLoader := cli.transcriptStore.transcriptMessageLoader
+	defer func() { cli.transcriptStore.transcriptMessageLoader = originalLoader }()
 
 	var (
 		gotTarget string
 		gotLimit  int
 	)
-	transcriptMessageLoader = func(ctx context.Context, cli *TelegramCLI, target string, limit int) ([]MessageOutput, error) {
+	cli.transcriptStore.transcriptMessageLoader = func(ctx context.Context, cli *TelegramCLI, target string, limit int) ([]MessageOutput, error) {
 		gotTarget = target
 		gotLimit = limit
 		return []MessageOutput{{
@@ -32,7 +32,7 @@ func TestSyncTranscriptContextUsesRequestedLimit(t *testing.T) {
 		}}, nil
 	}
 
-	if err := cli.syncTranscriptContext(context.Background(), "@alice", "Alice", transcriptResumeFetchLimit); err != nil {
+	if err := cli.transcriptStore.syncTranscriptContext(context.Background(), cli, "@alice", "Alice", transcriptResumeFetchLimit); err != nil {
 		t.Fatalf("syncTranscriptContext error: %v", err)
 	}
 
@@ -43,7 +43,7 @@ func TestSyncTranscriptContextUsesRequestedLimit(t *testing.T) {
 		t.Fatalf("expected limit %d, got %d", transcriptResumeFetchLimit, gotLimit)
 	}
 
-	entries, loaded := cli.transcriptSnapshot("@alice")
+	entries, loaded := cli.transcriptStore.transcriptSnapshot("@alice")
 	if !loaded {
 		t.Fatalf("expected transcript to be marked loaded")
 	}
@@ -56,31 +56,29 @@ func TestMaybeResumeAfterIdleRefreshesActiveChat(t *testing.T) {
 	cli := NewTelegramCLI(1, "hash", t.TempDir()+"/session.json")
 	cli.setCurrentChat("@alice", "Alice")
 	cli.cacheUser(&tg.User{ID: 1, FirstName: "Alice", Username: "alice"})
-	cli.chatUnreadCount[normalizeUsername("@alice")] = 3
+	cli.chatState.chatUnreadCount[normalizeUsername("@alice")] = 3
 
-	originalNow := interactiveResumeNow
-	originalLoader := transcriptMessageLoader
-	originalDialogRefresher := interactiveResumeDialogRefresher
+	originalLoader := cli.transcriptStore.transcriptMessageLoader
+	originalDialogRefresher := cli.interactiveResumeDialogRefresher
 	defer func() {
-		interactiveResumeNow = originalNow
-		transcriptMessageLoader = originalLoader
-		interactiveResumeDialogRefresher = originalDialogRefresher
+		cli.transcriptStore.transcriptMessageLoader = originalLoader
+		cli.interactiveResumeDialogRefresher = originalDialogRefresher
 	}()
 
 	base := time.Unix(1710000000, 0)
-	interactiveResumeNow = func() time.Time { return base.Add(interactiveResumeIdleThreshold + time.Minute) }
+	cli.nowFunc = func() time.Time { return base.Add(interactiveResumeIdleThreshold + time.Minute) }
 
-	cli.lastInteractiveUse = base
+	cli.chatState.lastInteractiveUse = base
 
 	var dialogRefreshes int
-	interactiveResumeDialogRefresher = func(ctx context.Context, cli *TelegramCLI, limit int) ([]CachedChat, error) {
+	cli.interactiveResumeDialogRefresher = func(ctx context.Context, cli *TelegramCLI, limit int) ([]CachedChat, error) {
 		dialogRefreshes++
 		if limit != interactiveResumeDialogLimit {
 			t.Fatalf("expected dialog limit %d, got %d", interactiveResumeDialogLimit, limit)
 		}
 		return nil, nil
 	}
-	transcriptMessageLoader = func(ctx context.Context, cli *TelegramCLI, target string, limit int) ([]MessageOutput, error) {
+	cli.transcriptStore.transcriptMessageLoader = func(ctx context.Context, cli *TelegramCLI, target string, limit int) ([]MessageOutput, error) {
 		return []MessageOutput{{
 			ID:       202,
 			FromName: "Alice",
@@ -96,11 +94,11 @@ func TestMaybeResumeAfterIdleRefreshesActiveChat(t *testing.T) {
 	if dialogRefreshes != 1 {
 		t.Fatalf("expected one dialog refresh, got %d", dialogRefreshes)
 	}
-	if got := cli.chatUnreadCount[normalizeUsername("@alice")]; got != 0 {
+	if got := cli.chatState.chatUnreadCount[normalizeUsername("@alice")]; got != 0 {
 		t.Fatalf("expected unread count cleared, got %d", got)
 	}
 
-	entries, _ := cli.transcriptSnapshot("@alice")
+	entries, _ := cli.transcriptStore.transcriptSnapshot("@alice")
 	if len(entries) != 1 || entries[0].MessageID != 202 {
 		t.Fatalf("expected refreshed transcript entry, got %#v", entries)
 	}
@@ -109,9 +107,9 @@ func TestMaybeResumeAfterIdleRefreshesActiveChat(t *testing.T) {
 func TestRetryInteractiveRPCRetriesReconnectErrors(t *testing.T) {
 	cli := NewTelegramCLI(1, "hash", t.TempDir()+"/session.json")
 
-	originalDialogRefresher := interactiveResumeDialogRefresher
-	defer func() { interactiveResumeDialogRefresher = originalDialogRefresher }()
-	interactiveResumeDialogRefresher = func(ctx context.Context, cli *TelegramCLI, limit int) ([]CachedChat, error) {
+	originalDialogRefresher := cli.interactiveResumeDialogRefresher
+	defer func() { cli.interactiveResumeDialogRefresher = originalDialogRefresher }()
+	cli.interactiveResumeDialogRefresher = func(ctx context.Context, cli *TelegramCLI, limit int) ([]CachedChat, error) {
 		return nil, nil
 	}
 

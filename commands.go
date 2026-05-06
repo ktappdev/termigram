@@ -173,7 +173,7 @@ func (cli *TelegramCLI) runUnreadPicker(ctx context.Context) {
 	if !ok {
 		return
 	}
-	if loadErr := cli.ensureTranscriptContext(ctx, chosen.Target, chosen.Label, unreadTranscriptMinContextEntries); loadErr != nil {
+	if loadErr := cli.transcriptStore.ensureTranscriptContext(ctx, cli, chosen.Target, chosen.Label, unreadTranscriptMinContextEntries); loadErr != nil {
 		fmt.Printf("%s %v\n", yellow("Warning:"), loadErr)
 	}
 	cli.activateCachedChat(*chosen, false)
@@ -404,13 +404,21 @@ func (cli *TelegramCLI) commandLoop(ctx context.Context) {
 		case "\\help":
 			printHelp()
 		case "\\quit", "\\exit":
-			fmt.Println("Goodbye!")
-			if cli.cancel != nil {
-				cli.cancel()
-			}
+			cli.quitCommand()
 			return
 		default:
-			fmt.Printf("%s %s. Type \\help for available commands.\n", yellow("Unknown command:"), cmd)
+			unknownCommand(cmd)
 		}
 	}
+}
+
+func (cli *TelegramCLI) quitCommand() {
+	fmt.Println("Goodbye!")
+	if cli.cancel != nil {
+		cli.cancel()
+	}
+}
+
+func unknownCommand(cmd string) {
+	fmt.Printf("%s %s. Type \\help for available commands.\n", yellow("Unknown command:"), cmd)
 }

@@ -7,18 +7,18 @@ import (
 
 func TestEnsureTranscriptContextFetchesWhenOnlyBufferedUnreadEntryExists(t *testing.T) {
 	cli := NewTelegramCLI(1, "hash", t.TempDir()+"/session.json")
-	cli.appendTranscriptEntry("@alice", transcriptEntry{
+	cli.transcriptStore.appendTranscriptEntry("@alice", transcriptEntry{
 		MessageID: 99,
 		Header:    "Alice",
 		Body:      "buffered unread",
 		Meta:      "09:05:00",
 	})
 
-	originalLoader := transcriptMessageLoader
-	defer func() { transcriptMessageLoader = originalLoader }()
+	originalLoader := cli.transcriptStore.transcriptMessageLoader
+	defer func() { cli.transcriptStore.transcriptMessageLoader = originalLoader }()
 
 	calls := 0
-	transcriptMessageLoader = func(ctx context.Context, cli *TelegramCLI, target string, limit int) ([]MessageOutput, error) {
+	cli.transcriptStore.transcriptMessageLoader = func(ctx context.Context, cli *TelegramCLI, target string, limit int) ([]MessageOutput, error) {
 		calls++
 		if target != "@alice" {
 			t.Fatalf("expected target @alice, got %q", target)
@@ -32,14 +32,14 @@ func TestEnsureTranscriptContextFetchesWhenOnlyBufferedUnreadEntryExists(t *test
 		}, nil
 	}
 
-	if err := cli.ensureTranscriptContext(context.Background(), "@alice", "Alice", unreadTranscriptMinContextEntries); err != nil {
+	if err := cli.transcriptStore.ensureTranscriptContext(context.Background(), cli, "@alice", "Alice", unreadTranscriptMinContextEntries); err != nil {
 		t.Fatalf("ensureTranscriptContext returned error: %v", err)
 	}
 	if calls != 1 {
 		t.Fatalf("expected one history fetch, got %d", calls)
 	}
 
-	snapshot, loaded := cli.transcriptSnapshot("@alice")
+	snapshot, loaded := cli.transcriptStore.transcriptSnapshot("@alice")
 	if !loaded {
 		t.Fatalf("expected transcript to be marked loaded after fetch")
 	}
@@ -53,21 +53,21 @@ func TestEnsureTranscriptContextFetchesWhenOnlyBufferedUnreadEntryExists(t *test
 
 func TestEnsureTranscriptContextSkipsFetchWhenLoadedTranscriptAlreadyHasContext(t *testing.T) {
 	cli := NewTelegramCLI(1, "hash", t.TempDir()+"/session.json")
-	cli.mergeTranscriptEntries("@alice", []transcriptEntry{
+	cli.transcriptStore.mergeTranscriptEntries("@alice", []transcriptEntry{
 		{MessageID: 1, Body: "older"},
 		{MessageID: 2, Body: "newer"},
 	})
 
-	originalLoader := transcriptMessageLoader
-	defer func() { transcriptMessageLoader = originalLoader }()
+	originalLoader := cli.transcriptStore.transcriptMessageLoader
+	defer func() { cli.transcriptStore.transcriptMessageLoader = originalLoader }()
 
 	calls := 0
-	transcriptMessageLoader = func(ctx context.Context, cli *TelegramCLI, target string, limit int) ([]MessageOutput, error) {
+	cli.transcriptStore.transcriptMessageLoader = func(ctx context.Context, cli *TelegramCLI, target string, limit int) ([]MessageOutput, error) {
 		calls++
 		return nil, nil
 	}
 
-	if err := cli.ensureTranscriptContext(context.Background(), "@alice", "Alice", unreadTranscriptMinContextEntries); err != nil {
+	if err := cli.transcriptStore.ensureTranscriptContext(context.Background(), cli, "@alice", "Alice", unreadTranscriptMinContextEntries); err != nil {
 		t.Fatalf("ensureTranscriptContext returned error: %v", err)
 	}
 	if calls != 0 {

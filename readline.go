@@ -29,18 +29,22 @@ func (cli *TelegramCLI) readInteractiveLine(ctx context.Context, sigChan <-chan 
 		return strings.TrimSpace(line), nil
 	}
 
-	cli.setConsole(console)
+	cli.transcriptStore.setConsole(console)
 	defer func() {
-		cli.setConsole(nil)
-		_ = console.Close()
+		cli.transcriptStore.setConsole(nil)
+		if closeErr := console.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "termigram: close console: %v\n", closeErr)
+		}
 	}()
 
 	target, label := cli.currentChat()
 	if target != "" {
-		loadErr := cli.ensureTranscript(ctx, target, label)
+		loadErr := cli.transcriptStore.ensureTranscript(ctx, cli, target, label)
 		cli.redrawChatView()
 		if loadErr != nil {
-			_ = console.WriteString(fmt.Sprintf("Warning: could not load recent chat history: %v", loadErr))
+			if err := console.WriteString(fmt.Sprintf("Warning: could not load recent chat history: %v", loadErr)); err != nil {
+				fmt.Fprintf(os.Stderr, "termigram: write chat history warning: %v\n", err)
+			}
 		}
 	}
 

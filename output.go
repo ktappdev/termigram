@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -10,8 +11,10 @@ func (cli *TelegramCLI) writeOutput(text string) {
 		return
 	}
 
-	if console := cli.currentConsole(); console != nil {
-		_ = console.WriteString(text)
+	if console := cli.transcriptStore.currentConsole(); console != nil {
+		if err := console.WriteString(text); err != nil {
+			fmt.Fprintf(os.Stderr, "termigram: write output: %v\n", err)
+		}
 		return
 	}
 

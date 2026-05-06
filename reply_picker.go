@@ -204,11 +204,11 @@ func (cli *TelegramCLI) selectReplyTarget(ctx context.Context, selector string) 
 	if target == "" {
 		return nil, fmt.Errorf("no active chat; switch chats with \\to or \\msg first")
 	}
-	if err := cli.ensureTranscriptContext(ctx, target, label, replyPickerContextEntries); err != nil {
+	if err := cli.transcriptStore.ensureTranscriptContext(ctx, cli, target, label, replyPickerContextEntries); err != nil {
 		return nil, err
 	}
 
-	entries, _ := cli.transcriptSnapshot(target)
+	entries, _ := cli.transcriptStore.transcriptSnapshot(target)
 	if len(entries) == 0 {
 		return nil, fmt.Errorf("no messages available for the active chat")
 	}

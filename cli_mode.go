@@ -284,8 +284,7 @@ func cmdMe(ctx context.Context, backend TelegramBackend, asJSON bool) error {
 	return nil
 }
 
-func cmdFind(ctx context.Context, backend TelegramBackend, args []string, asJSON bool) error {
-	_ = ctx
+func cmdFind(_ context.Context, backend TelegramBackend, args []string, asJSON bool) error {
 	if len(args) < 1 {
 		return fmt.Errorf("usage: find <prefix>")
 	}
@@ -337,6 +336,34 @@ func chronologicalMessages(messages []MessageOutput) []MessageOutput {
 		return ordered[i].Date < ordered[j].Date
 	})
 	return ordered
+}
+
+// parseSendOptions extracts send-related flags (--reply-to, --silent) from args
+// and returns the remaining positional args, the parsed options, and any error.
+func parseSendOptions(args []string) ([]string, SendOptions, error) {
+	var opts SendOptions
+	var remaining []string
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--reply-to" && i+1 < len(args):
+			id, err := strconv.ParseInt(args[i+1], 10, 64)
+			if err != nil {
+				return nil, opts, fmt.Errorf("invalid --reply-to value: %w", err)
+			}
+			opts.ReplyToMessageID = id
+			i++ // skip the value
+		case arg == "--silent":
+			opts.Silent = true
+		case strings.HasPrefix(arg, "--"):
+			return nil, opts, fmt.Errorf("unknown flag: %s", arg)
+		default:
+			remaining = append(remaining, arg)
+		}
+	}
+
+	return remaining, opts, nil
 }
 
 // parseLimitArg parses --limit argument from args.

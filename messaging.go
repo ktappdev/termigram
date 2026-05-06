@@ -12,10 +12,6 @@ import (
 	"golang.org/x/term"
 )
 
-var sendPreparedImageWithBackend = func(ctx context.Context, backend *UserBackend, target string, prepared preparedImageSource, caption string, opts SendOptions) (int64, error) {
-	return backend.sendPreparedImage(ctx, target, prepared, caption, opts)
-}
-
 type transcriptTheme struct {
 	border func(string) string
 	fill   func(string) string
@@ -291,7 +287,7 @@ func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text str
 	preview := messagePreviewText(text, nil)
 	cli.setCurrentChat(targetLabel, displayName)
 	cli.markChatActivity(targetLabel, preview, now)
-	_ = cli.ensureTranscript(ctx, targetLabel, displayName)
+	_ = cli.transcriptStore.ensureTranscript(ctx, cli, targetLabel, displayName)
 
 	entry := transcriptEntry{
 		MessageID: messageID,
@@ -304,7 +300,7 @@ func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text str
 		Preview:   preview,
 		Reply:     cloneReplyReference(replyRef),
 	}
-	cli.appendTranscriptEntry(targetLabel, entry)
+	cli.transcriptStore.appendTranscriptEntry(targetLabel, entry)
 
 	if interactiveTTYAvailable() {
 		return
@@ -314,7 +310,7 @@ func (cli *TelegramCLI) sendMessage(ctx context.Context, target string, text str
 
 func (cli *TelegramCLI) sendImage(ctx context.Context, target string, label string, source string, caption string, usePendingReply bool) error {
 	backend := &UserBackend{cli: cli}
-	prepared, err := prepareImageSource(ctx, source)
+	prepared, err := prepareImageSourceWithLimit(ctx, source, cli.httpClient, cli.maxRemoteImageBytesLimit())
 	if err != nil {
 		return err
 	}
@@ -332,7 +328,7 @@ func (cli *TelegramCLI) sendImage(ctx context.Context, target string, label stri
 	}
 
 	messageID, err := cli.retryInteractiveRPC(ctx, func(runCtx context.Context) (int64, error) {
-		return sendPreparedImageWithBackend(runCtx, backend, target, prepared, caption, opts)
+		return cli.sendPreparedImageWithBackend(runCtx, backend, target, prepared, caption, opts)
 	})
 	if err != nil {
 		return err
@@ -348,7 +344,7 @@ func (cli *TelegramCLI) sendImage(ctx context.Context, target string, label stri
 	}
 	cachedPath := prepared.Path
 	if !prepared.Persistent {
-		cachedPath, err = cacheOutboundImageFunc(target, attachment, prepared.Path)
+		cachedPath, err = cli.cacheOutboundImageFunc(target, attachment, prepared.Path)
 		if err != nil {
 			return err
 		}
@@ -382,18 +378,18 @@ func (cli *TelegramCLI) shouldPrintIncoming(msg *tg.Message, fromTarget string) 
 	key := fmt.Sprintf("%d:%d:%s", msg.ID, msg.Date, normalizeUsername(fromTarget))
 	now := time.Now()
 
-	cli.mu.Lock()
-	defer cli.mu.Unlock()
+	cli.chatState.mu.Lock()
+	defer cli.chatState.mu.Unlock()
 
-	for k, seenAt := range cli.seenIncoming {
+	for k, seenAt := range cli.chatState.seenIncoming {
 		if now.Sub(seenAt) > 2*time.Minute {
-			delete(cli.seenIncoming, k)
+			delete(cli.chatState.seenIncoming, k)
 		}
 	}
-	if _, exists := cli.seenIncoming[key]; exists {
+	if _, exists := cli.chatState.seenIncoming[key]; exists {
 		return false
 	}
-	cli.seenIncoming[key] = now
+	cli.chatState.seenIncoming[key] = now
 	return true
 }
 
@@ -431,7 +427,7 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 		return
 	}
 
-	reply := cli.resolveReplyReferenceForTarget(ensureContext(cli.ctx), fromTarget, msg)
+	reply := cli.resolveReplyReferenceForTarget(cli.ctx, fromTarget, msg)
 	out := messageOutputFromTGMessageWithReply(cli, msg, reply)
 	if strings.TrimSpace(out.Message) == "" {
 		return
@@ -450,9 +446,9 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 
 	entry := transcriptEntryFromMessageOutput(fromTarget, fromName, out)
 	entry.Header = incomingTranscriptHeader(fromName, fromTarget, mismatch)
-	cli.appendTranscriptEntry(fromTarget, entry)
+	cli.transcriptStore.appendTranscriptEntry(fromTarget, entry)
 
-	if !mismatch && cli.currentConsole() != nil {
+	if !mismatch && cli.transcriptStore.currentConsole() != nil {
 		cli.redrawChatView()
 		return
 	}
@@ -460,7 +456,7 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 		return
 	}
 
-	if console := cli.currentConsole(); console != nil {
+	if console := cli.transcriptStore.currentConsole(); console != nil {
 		text := renderTranscriptBubbleForWidth(false, entry.Header, entry.Body, entry.Meta, transcriptWidth())
 		if mismatch {
 			focusLabel := activeLabel
@@ -472,7 +468,9 @@ func (cli *TelegramCLI) printMessage(msg *tg.Message) {
 			}
 			text += "\n" + fmt.Sprintf("  %s %s %s", yellow("↪"), dim("Current focus:"), bold(focusLabel))
 		}
-		_ = console.WriteString(text)
+		if err := console.WriteString(text); err != nil {
+			fmt.Fprintf(os.Stderr, "termigram: write transcript message: %v\n", err)
+		}
 		return
 	}
 

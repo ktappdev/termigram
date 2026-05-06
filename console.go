@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -37,7 +38,9 @@ func newConsole(prompt string) (*console, error) {
 		terminal: terminal,
 		oldState: oldState,
 	}
-	_ = console.Resize()
+	if err := console.Resize(); err != nil {
+		fmt.Fprintf(os.Stderr, "termigram: initialize console size: %v\n", err)
+	}
 	return console, nil
 }
 

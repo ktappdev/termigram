@@ -1,0 +1,14 @@
+{
+  "stateVersion": 9,
+  "lastSuggestion": {
+    "text": "Help me draft a task for architecture documentation.",
+    "shownAt": "2026-04-10T00:42:29.546Z",
+    "turnId": "ebbe1e18",
+    "sourceLeafId": "ebbe1e18",
+    "variantName": "default",
+    "strategy": "compact",
+    "requestedStrategy": "compact"
+  },
+  "steeringHistory": [],
+  "turnsSinceLastStalenessCheck": 1
+}

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPrepareLocalImageSourceAcceptsPNG(t *testing.T) {
@@ -20,7 +21,7 @@ func TestPrepareLocalImageSourceAcceptsPNG(t *testing.T) {
 	path := filepath.Join(dir, "sample.png")
 	writePNG(t, path)
 
-	prepared, err := prepareImageSource(context.Background(), path)
+	prepared, err := prepareImageSource(context.Background(), path, testHTTPClient())
 	if err != nil {
 		t.Fatalf("prepareImageSource returned error: %v", err)
 	}
@@ -40,7 +41,7 @@ func TestPrepareLocalImageSourceRejectsGIF(t *testing.T) {
 	path := filepath.Join(dir, "sample.gif")
 	writeGIF(t, path)
 
-	if _, err := prepareImageSource(context.Background(), path); err == nil {
+	if _, err := prepareImageSource(context.Background(), path, testHTTPClient()); err == nil {
 		t.Fatalf("expected gif to be rejected")
 	}
 }
@@ -50,7 +51,7 @@ func TestPrepareImageSourceAcceptsFileURL(t *testing.T) {
 	path := filepath.Join(dir, "sample.png")
 	writePNG(t, path)
 
-	prepared, err := prepareImageSource(context.Background(), "file://"+path)
+	prepared, err := prepareImageSource(context.Background(), "file://"+path, testHTTPClient())
 	if err != nil {
 		t.Fatalf("prepareImageSource returned error: %v", err)
 	}
@@ -67,7 +68,7 @@ func TestPrepareRemoteImageSourceRejectsOversize(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if _, err := prepareImageSource(context.Background(), server.URL); err == nil || !strings.Contains(err.Error(), "20 MiB") {
+	if _, err := prepareImageSource(context.Background(), server.URL, testHTTPClient()); err == nil || !strings.Contains(err.Error(), "20 MiB") {
 		t.Fatalf("expected oversize error, got %v", err)
 	}
 }
@@ -79,7 +80,7 @@ func TestPrepareRemoteImageSourceDownloadsPNG(t *testing.T) {
 	}))
 	defer server.Close()
 
-	prepared, err := prepareImageSource(context.Background(), server.URL+"/meme")
+	prepared, err := prepareImageSource(context.Background(), server.URL+"/meme", testHTTPClient())
 	if err != nil {
 		t.Fatalf("prepareImageSource returned error: %v", err)
 	}
@@ -102,9 +103,13 @@ func TestPrepareRemoteImageSourceRejectsLyingImageHeader(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if _, err := prepareImageSource(context.Background(), server.URL+"/fake.png"); err == nil {
+	if _, err := prepareImageSource(context.Background(), server.URL+"/fake.png", testHTTPClient()); err == nil {
 		t.Fatalf("expected non-image body to be rejected even with image/png header")
 	}
+}
+
+func testHTTPClient() *http.Client {
+	return &http.Client{Timeout: 30 * time.Second}
 }
 
 func writePNG(t *testing.T, path string) {

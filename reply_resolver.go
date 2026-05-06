@@ -10,8 +10,6 @@ import (
 	"github.com/gotd/td/tg"
 )
 
-var fetchReplyMessagesFunc = fetchReplyMessages
-
 func messageReplyHeader(msg *tg.Message) *tg.MessageReplyHeader {
 	if msg == nil {
 		return nil
@@ -207,7 +205,7 @@ func resolveReplyReferencesForMessages(ctx context.Context, cli *TelegramCLI, me
 	}
 	sort.Slice(missingIDs, func(i, j int) bool { return missingIDs[i] < missingIDs[j] })
 
-	fetched, err := fetchReplyMessagesFunc(ctx, cli, missingIDs)
+	fetched, err := cli.fetchReplyMessagesFunc(ctx, cli, missingIDs)
 	if err != nil {
 		return refs
 	}
@@ -238,12 +236,12 @@ func (cli *TelegramCLI) resolveReplyReferenceForTarget(ctx context.Context, targ
 		return nil
 	}
 
-	entries, _ := cli.transcriptSnapshot(target)
+	entries, _ := cli.transcriptStore.transcriptSnapshot(target)
 	if entry, ok := findTranscriptEntryByID(entries, replyToID); ok {
 		return replyReferenceFromEntry(*entry)
 	}
 
-	fetched, err := fetchReplyMessagesFunc(ctx, cli, []int64{replyToID})
+	fetched, err := cli.fetchReplyMessagesFunc(ctx, cli, []int64{replyToID})
 	if err == nil {
 		if original, ok := fetched[replyToID]; ok {
 			return replyReferenceFromMessage(cli, original)
@@ -273,7 +271,7 @@ func fetchReplyMessages(ctx context.Context, cli *TelegramCLI, ids []int64) (map
 		return result, nil
 	}
 
-	response, err := cli.api.MessagesGetMessages(ensureContext(ctx), inputIDs)
+	response, err := cli.api.MessagesGetMessages(ctx, inputIDs)
 	if err != nil {
 		return result, err
 	}

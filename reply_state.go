@@ -4,15 +4,15 @@ import "fmt"
 
 func (cli *TelegramCLI) setPendingReply(target string, ref *ReplyReference) {
 	normalized := normalizeReplyTarget(target)
-	cli.mu.Lock()
-	defer cli.mu.Unlock()
+	cli.chatState.mu.Lock()
+	defer cli.chatState.mu.Unlock()
 	if normalized == "" || !isValidReplyReference(ref) {
-		cli.pendingReply = nil
-		cli.pendingReplyTarget = ""
+		cli.chatState.pendingReply = nil
+		cli.chatState.pendingReplyTarget = ""
 		return
 	}
-	cli.pendingReplyTarget = normalized
-	cli.pendingReply = cloneReplyReference(ref)
+	cli.chatState.pendingReplyTarget = normalized
+	cli.chatState.pendingReply = cloneReplyReference(ref)
 }
 
 func (cli *TelegramCLI) pendingReplyForTarget(target string) *ReplyReference {
@@ -21,20 +21,20 @@ func (cli *TelegramCLI) pendingReplyForTarget(target string) *ReplyReference {
 		return nil
 	}
 
-	cli.mu.RLock()
-	defer cli.mu.RUnlock()
-	if cli.pendingReply == nil || cli.pendingReplyTarget != normalized {
+	cli.chatState.mu.RLock()
+	defer cli.chatState.mu.RUnlock()
+	if cli.chatState.pendingReply == nil || cli.chatState.pendingReplyTarget != normalized {
 		return nil
 	}
-	return cloneReplyReference(cli.pendingReply)
+	return cloneReplyReference(cli.chatState.pendingReply)
 }
 
 func (cli *TelegramCLI) clearPendingReply() bool {
-	cli.mu.Lock()
-	defer cli.mu.Unlock()
-	cleared := cli.pendingReply != nil || cli.pendingReplyTarget != ""
-	cli.pendingReply = nil
-	cli.pendingReplyTarget = ""
+	cli.chatState.mu.Lock()
+	defer cli.chatState.mu.Unlock()
+	cleared := cli.chatState.pendingReply != nil || cli.chatState.pendingReplyTarget != ""
+	cli.chatState.pendingReply = nil
+	cli.chatState.pendingReplyTarget = ""
 	return cleared
 }
 
@@ -44,14 +44,14 @@ func (cli *TelegramCLI) consumePendingReply(target string) *ReplyReference {
 		return nil
 	}
 
-	cli.mu.Lock()
-	defer cli.mu.Unlock()
-	if cli.pendingReply == nil || cli.pendingReplyTarget != normalized {
+	cli.chatState.mu.Lock()
+	defer cli.chatState.mu.Unlock()
+	if cli.chatState.pendingReply == nil || cli.chatState.pendingReplyTarget != normalized {
 		return nil
 	}
-	ref := *cli.pendingReply
-	cli.pendingReply = nil
-	cli.pendingReplyTarget = ""
+	ref := *cli.chatState.pendingReply
+	cli.chatState.pendingReply = nil
+	cli.chatState.pendingReplyTarget = ""
 	return &ref
 }
 

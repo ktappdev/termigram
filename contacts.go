@@ -9,15 +9,19 @@ import (
 )
 
 func (cli *TelegramCLI) fetchContacts(ctx context.Context) ([]ContactOutput, error) {
-	contacts, err := cli.api.ContactsGetContacts(ctx, 0)
+	resp, err := cli.api.ContactsGetContacts(ctx, 0)
 	if err != nil {
 		return nil, err
 	}
+	return processContactsResponse(resp, cli)
+}
 
-	out := make([]ContactOutput, 0)
-	switch c := contacts.(type) {
+// processContactsResponse handles the ContactsContactsClass type switch from fetchContacts.
+// Extracted for testability — can be called directly with synthetic response values.
+func processContactsResponse(resp tg.ContactsContactsClass, cli *TelegramCLI) ([]ContactOutput, error) {
+	switch c := resp.(type) {
 	case *tg.ContactsContacts:
-		out = make([]ContactOutput, 0, len(c.Users))
+		out := make([]ContactOutput, 0, len(c.Users))
 		for _, user := range c.Users {
 			u, ok := user.(*tg.User)
 			if !ok {
@@ -32,11 +36,12 @@ func (cli *TelegramCLI) fetchContacts(ctx context.Context) ([]ContactOutput, err
 				Phone:     u.Phone,
 			})
 		}
+		return out, nil
+	case *tg.ContactsContactsNotModified:
+		return nil, nil
 	default:
-		return nil, fmt.Errorf("unexpected contacts response type: %T", contacts)
+		return nil, fmt.Errorf("unexpected contacts response type: %T", resp)
 	}
-
-	return out, nil
 }
 
 func (cli *TelegramCLI) loadContacts(ctx context.Context) error {

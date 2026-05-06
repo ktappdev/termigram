@@ -4,10 +4,10 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gotd/td/telegram"
@@ -23,44 +23,60 @@ type TelegramCLI struct {
 	ctx                context.Context
 	cancel             context.CancelFunc
 	reader             *bufio.Reader
-	mu                 sync.RWMutex
-	users              map[int64]*tg.User
-	usersByName        map[string]*tg.User // username -> user mapping
-	usernameByUserID   map[int64]string
-	currentChatTarget  string
-	currentChatLabel   string
-	lastInteractiveUse time.Time
-	lastResumeSync     time.Time
-	chatLastActivity   map[string]time.Time
-	chatLastMessage    map[string]string
-	chatUnreadCount    map[string]int
-	seenIncoming       map[string]time.Time
-	pendingReply       *ReplyReference
-	pendingReplyTarget string
-	transcriptMu       sync.RWMutex
-	console            *console
-	transcripts        map[string][]transcriptEntry
-	transcriptLoaded   map[string]bool
+	nowFunc          func() time.Time
+	userCache        *UserCache
+	chatState        *ChatState
+	httpClient       *http.Client
+	transcriptStore  *TranscriptStore
+	envLookup        func(string) string
+	ttyCheck                func() bool
+	interactiveResumeDialogRefresher func(ctx context.Context, cli *TelegramCLI, limit int) ([]CachedChat, error)
+	sendPreparedImageWithBackend    func(ctx context.Context, backend *UserBackend, target string, prepared preparedImageSource, caption string, opts SendOptions) (int64, error)
+	fetchReplyMessagesFunc          func(ctx context.Context, cli *TelegramCLI, ids []int64) (map[int64]*tg.Message, error)
+	imageDownloadFunc               func(ctx context.Context, cli *TelegramCLI, entry transcriptEntry, path string) error
+	openLocalPath                   func(path string) error
+	cacheOutboundImageFunc          func(target string, attachment *ImageAttachment, sourcePath string) (string, error)
+	config                          Config
 }
 
 func NewTelegramCLI(appID int, appHash string, sessionPath string) *TelegramCLI {
+	return NewTelegramCLIWithConfig(Config{
+		TelegramAppID:   appID,
+		TelegramAppHash: appHash,
+		SessionPath:     sessionPath,
+	})
+}
+
+func NewTelegramCLIWithConfig(cfg Config) *TelegramCLI {
+	appID := cfg.TelegramAppID
+	appHash := cfg.TelegramAppHash
+	sessionPath := cfg.SessionPath
 	sessionDir := filepath.Dir(sessionPath)
 	if err := os.MkdirAll(sessionDir, 0700); err != nil {
 		fmt.Printf("Warning: could not create session directory: %v\n", err)
 	}
 
 	cli := &TelegramCLI{
-		reader:           bufio.NewReader(os.Stdin),
-		users:            make(map[int64]*tg.User),
-		usersByName:      make(map[string]*tg.User),
-		usernameByUserID: make(map[int64]string),
-		chatLastActivity: make(map[string]time.Time),
-		chatLastMessage:  make(map[string]string),
-		chatUnreadCount:  make(map[string]int),
-		seenIncoming:     make(map[string]time.Time),
-		transcripts:      make(map[string][]transcriptEntry),
-		transcriptLoaded: make(map[string]bool),
+		reader:                          bufio.NewReader(os.Stdin),
+		nowFunc:                         time.Now,
+		httpClient:                      &http.Client{Timeout: 30 * time.Second},
+		envLookup:                       os.Getenv,
+		ttyCheck:                        interactiveTTYAvailable,
+		interactiveResumeDialogRefresher: func(ctx context.Context, cli *TelegramCLI, limit int) ([]CachedChat, error) {
+			return cli.fetchDialogs(ctx, limit, false)
+		},
+		sendPreparedImageWithBackend: func(ctx context.Context, backend *UserBackend, target string, prepared preparedImageSource, caption string, opts SendOptions) (int64, error) {
+			return backend.sendPreparedImage(ctx, target, prepared, caption, opts)
+		},
+		fetchReplyMessagesFunc:           fetchReplyMessages,
+		imageDownloadFunc:                downloadImageAttachment,
+		openLocalPath:                    defaultOpenLocalPath,
+		cacheOutboundImageFunc:           cacheOutboundImageCopy,
+		userCache:                       newUserCache(),
+		chatState:                       newChatState(),
+		config:                          cfg,
 	}
+	cli.transcriptStore = newTranscriptStore(&cli.config)
 
 	cli.client = telegram.NewClient(appID, appHash, telegram.Options{
 		SessionStorage: &telegram.FileSessionStorage{
@@ -72,6 +88,12 @@ func NewTelegramCLI(appID int, appHash string, sessionPath string) *TelegramCLI 
 	})
 
 	return cli
+}
+
+func (cli *TelegramCLI) promptInput(prompt string) string {
+	fmt.Print(prompt)
+	input, _ := cli.reader.ReadString('\n')
+	return strings.TrimSpace(input)
 }
 
 func (cli *TelegramCLI) RunInteractive() error {
@@ -126,8 +148,7 @@ func (cli *TelegramCLI) RunInteractive() error {
 	})
 }
 
-func (cli *TelegramCLI) handleUpdates(ctx context.Context, updates tg.UpdatesClass) error {
-	_ = ctx
+func (cli *TelegramCLI) handleUpdates(_ context.Context, updates tg.UpdatesClass) error {
 
 	switch u := updates.(type) {
 	case *tg.Updates:

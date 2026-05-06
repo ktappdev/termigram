@@ -17,7 +17,7 @@ type UserBackend struct {
 }
 
 func NewUserBackend(cfg Config) *UserBackend {
-	return &UserBackend{cli: NewTelegramCLI(cfg.TelegramAppID, cfg.TelegramAppHash, cfg.SessionPath)}
+	return &UserBackend{cli: NewTelegramCLIWithConfig(cfg)}
 }
 
 // Run initializes MTProto state for CLI commands and executes fn.
@@ -52,7 +52,7 @@ func (b *UserBackend) Run(ctx context.Context, fn func(context.Context) error) e
 func (b *UserBackend) IsAuthorized(ctx context.Context) (bool, error) {
 	status, err := b.cli.client.Auth().Status(ctx)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to get auth status: %w", err)
 	}
 	return status.Authorized, nil
 }
@@ -60,7 +60,7 @@ func (b *UserBackend) IsAuthorized(ctx context.Context) (bool, error) {
 func (b *UserBackend) GetSelf(ctx context.Context) (*UserOutput, error) {
 	self, err := b.cli.client.Self(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get self: %w", err)
 	}
 	b.cli.cacheUser(self)
 	return &UserOutput{
@@ -74,7 +74,10 @@ func (b *UserBackend) GetSelf(ctx context.Context) (*UserOutput, error) {
 
 func (b *UserBackend) SendMessage(ctx context.Context, target string, text string, opts SendOptions) error {
 	_, err := b.sendText(ctx, target, text, opts)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to send message: %w", err)
+	}
+	return nil
 }
 
 func (b *UserBackend) sendText(ctx context.Context, target string, text string, opts SendOptions) (int64, error) {
@@ -97,14 +100,17 @@ func (b *UserBackend) SendImage(ctx context.Context, target string, source strin
 		return fmt.Errorf("user backend is not initialized")
 	}
 
-	prepared, err := prepareImageSource(ctx, source)
+	prepared, err := prepareImageSourceWithLimit(ctx, source, b.cli.httpClient, b.cli.maxRemoteImageBytesLimit())
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to prepare image source: %w", err)
 	}
 	defer prepared.Cleanup()
 
 	_, err = b.sendPreparedImage(ctx, target, prepared, caption, opts)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to send image: %w", err)
+	}
+	return nil
 }
 
 func (b *UserBackend) sendPreparedImage(ctx context.Context, target string, prepared preparedImageSource, caption string, opts SendOptions) (int64, error) {
@@ -142,7 +148,7 @@ func (b *UserBackend) GetMessages(ctx context.Context, target string, limit int)
 
 	user, err := b.cli.findUserByIDOrUsername(ctx, target)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to resolve target: %w", err)
 	}
 
 	inputPeer := &tg.InputPeerUser{UserID: user.ID, AccessHash: user.AccessHash}
@@ -153,7 +159,7 @@ func (b *UserBackend) GetMessages(ctx context.Context, target string, limit int)
 
 	users, messageClasses, err := unpackMessagesResponse(response)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unpack messages: %w", err)
 	}
 	b.cli.cacheUsersFromClasses(users)
 	return b.messageOutputsFromClasses(ctx, messageClasses, limit), nil
@@ -192,7 +198,7 @@ func (b *UserBackend) GetContacts(ctx context.Context) ([]ContactOutput, error) 
 func (b *UserBackend) GetDialogs(ctx context.Context, limit int) ([]DialogOutput, error) {
 	chats, err := b.cli.fetchDialogs(ctx, limit, false)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get dialogs: %w", err)
 	}
 
 	out := make([]DialogOutput, 0, len(chats))
@@ -215,7 +221,7 @@ func (b *UserBackend) GetDialogs(ctx context.Context, limit int) ([]DialogOutput
 func (b *UserBackend) ResolveTarget(ctx context.Context, target string) (*UserOutput, error) {
 	user, err := b.cli.findUserByIDOrUsername(ctx, target)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to resolve target: %w", err)
 	}
 
 	return &UserOutput{

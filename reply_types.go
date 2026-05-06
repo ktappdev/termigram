@@ -5,6 +5,7 @@ import "strings"
 // SendOptions carries optional send-time metadata shared by text and image sends.
 type SendOptions struct {
 	ReplyToMessageID int64
+	Silent           bool
 }
 
 // ReplyReference is the human-readable reply target metadata exposed in JSON output

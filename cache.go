@@ -13,39 +13,56 @@ func normalizeUsername(username string) string {
 	return strings.ToLower(strings.TrimPrefix(username, "@"))
 }
 
-func (cli *TelegramCLI) cacheUser(user *tg.User) {
-	cli.mu.Lock()
-	defer cli.mu.Unlock()
-
-	if oldUsername, ok := cli.usernameByUserID[user.ID]; ok && oldUsername != "" {
-		delete(cli.usersByName, oldUsername)
+func buildChatLabel(user *tg.User) (label string, target string) {
+	label = strings.TrimSpace(user.FirstName + " " + user.LastName)
+	if label == "" {
+		label = user.Username
+	}
+	if label == "" {
+		label = fmt.Sprintf("User %d", user.ID)
 	}
 
-	cli.users[user.ID] = user
+	target = fmt.Sprintf("%d", user.ID)
+	if user.Username != "" {
+		target = "@" + user.Username
+	}
+
+	return label, target
+}
+
+func (cli *TelegramCLI) cacheUser(user *tg.User) {
+	cli.userCache.mu.Lock()
+	defer cli.userCache.mu.Unlock()
+
+	if oldUsername, ok := cli.userCache.usernameByUserID[user.ID]; ok && oldUsername != "" {
+		delete(cli.userCache.usersByName, oldUsername)
+	}
+
+	cli.userCache.users[user.ID] = user
 
 	username := normalizeUsername(user.Username)
 	if username == "" {
-		delete(cli.usernameByUserID, user.ID)
+		delete(cli.userCache.usernameByUserID, user.ID)
 		return
 	}
 
-	cli.usersByName[username] = user
-	cli.usernameByUserID[user.ID] = username
+	cli.userCache.usersByName[username] = user
+	cli.userCache.usernameByUserID[user.ID] = username
 }
 
 func (cli *TelegramCLI) getUserByID(userID int64) (*tg.User, bool) {
-	cli.mu.RLock()
-	defer cli.mu.RUnlock()
+	cli.userCache.mu.RLock()
+	defer cli.userCache.mu.RUnlock()
 
-	user, found := cli.users[userID]
+	user, found := cli.userCache.users[userID]
 	return user, found
 }
 
 func (cli *TelegramCLI) getUserByUsername(username string) (*tg.User, bool) {
-	cli.mu.RLock()
-	defer cli.mu.RUnlock()
+	cli.userCache.mu.RLock()
+	defer cli.userCache.mu.RUnlock()
 
-	user, found := cli.usersByName[normalizeUsername(username)]
+	user, found := cli.userCache.usersByName[normalizeUsername(username)]
 	return user, found
 }
 
@@ -62,33 +79,15 @@ func (cli *TelegramCLI) markChatActivity(target string, message string, at time.
 	if normalized == "" {
 		return
 	}
-	cli.mu.Lock()
-	defer cli.mu.Unlock()
+	cli.chatState.mu.Lock()
+	defer cli.chatState.mu.Unlock()
 	if at.IsZero() {
 		at = time.Now()
 	}
-	cli.chatLastActivity[normalized] = at
+	cli.chatState.chatLastActivity[normalized] = at
 	if strings.TrimSpace(message) != "" {
-		cli.chatLastMessage[normalized] = strings.TrimSpace(message)
+		cli.chatState.chatLastMessage[normalized] = strings.TrimSpace(message)
 	}
-}
-
-func (cli *TelegramCLI) updateImageCachePath(target string, messageID int64, path string) {
-	normalized := normalizeTranscriptTarget(target)
-	if normalized == "" || messageID == 0 || strings.TrimSpace(path) == "" {
-		return
-	}
-
-	cli.transcriptMu.Lock()
-	defer cli.transcriptMu.Unlock()
-
-	entries := cli.transcripts[normalized]
-	for i := range entries {
-		if entries[i].MessageID == messageID && entries[i].Image != nil {
-			entries[i].Image.CachedPath = path
-		}
-	}
-	cli.transcripts[normalized] = entries
 }
 
 func (cli *TelegramCLI) setChatUnreadCount(target string, unreadCount int) {
@@ -96,9 +95,9 @@ func (cli *TelegramCLI) setChatUnreadCount(target string, unreadCount int) {
 	if normalized == "" {
 		return
 	}
-	cli.mu.Lock()
-	defer cli.mu.Unlock()
-	cli.chatUnreadCount[normalized] = unreadCount
+	cli.chatState.mu.Lock()
+	defer cli.chatState.mu.Unlock()
+	cli.chatState.chatUnreadCount[normalized] = unreadCount
 }
 
 func (cli *TelegramCLI) clearChatUnreadCount(target string) {
@@ -106,9 +105,9 @@ func (cli *TelegramCLI) clearChatUnreadCount(target string) {
 	if normalized == "" {
 		return
 	}
-	cli.mu.Lock()
-	defer cli.mu.Unlock()
-	cli.chatUnreadCount[normalized] = 0
+	cli.chatState.mu.Lock()
+	defer cli.chatState.mu.Unlock()
+	cli.chatState.chatUnreadCount[normalized] = 0
 }
 
 func (cli *TelegramCLI) incrementChatUnreadCount(target string) int {
@@ -116,31 +115,22 @@ func (cli *TelegramCLI) incrementChatUnreadCount(target string) int {
 	if normalized == "" {
 		return 0
 	}
-	cli.mu.Lock()
-	defer cli.mu.Unlock()
-	cli.chatUnreadCount[normalized]++
-	return cli.chatUnreadCount[normalized]
+	cli.chatState.mu.Lock()
+	defer cli.chatState.mu.Unlock()
+	cli.chatState.chatUnreadCount[normalized]++
+	return cli.chatState.chatUnreadCount[normalized]
 }
 
 func (cli *TelegramCLI) listCachedChats(limit int) []CachedChat {
-	cli.mu.RLock()
-	defer cli.mu.RUnlock()
+	cli.chatState.mu.RLock()
+	cli.userCache.mu.RLock()
+	defer cli.userCache.mu.RUnlock()
+	defer cli.chatState.mu.RUnlock()
 
-	chats := make([]CachedChat, 0, len(cli.users))
-	seen := make(map[string]struct{}, len(cli.users))
-	for _, u := range cli.users {
-		label := strings.TrimSpace(u.FirstName + " " + u.LastName)
-		if label == "" {
-			label = u.Username
-		}
-		if label == "" {
-			label = fmt.Sprintf("User %d", u.ID)
-		}
-
-		target := fmt.Sprintf("%d", u.ID)
-		if u.Username != "" {
-			target = "@" + u.Username
-		}
+	chats := make([]CachedChat, 0, len(cli.userCache.users))
+	seen := make(map[string]struct{}, len(cli.userCache.users))
+	for _, u := range cli.userCache.users {
+		label, target := buildChatLabel(u)
 
 		normalized := normalizeUsername(target)
 		if _, ok := seen[normalized]; ok {
@@ -150,9 +140,9 @@ func (cli *TelegramCLI) listCachedChats(limit int) []CachedChat {
 		chats = append(chats, CachedChat{
 			Label:        label,
 			Target:       target,
-			LastMessage:  cli.chatLastMessage[normalized],
-			LastActivity: cli.chatLastActivity[normalized],
-			UnreadCount:  cli.chatUnreadCount[normalized],
+			LastMessage:  cli.chatState.chatLastMessage[normalized],
+			LastActivity: cli.chatState.chatLastActivity[normalized],
+			UnreadCount:  cli.chatState.chatUnreadCount[normalized],
 		})
 	}
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/gotd/td/tg"
@@ -46,9 +45,9 @@ func TestResolveReplyReferencesForMessagesFallsBackToFetch(t *testing.T) {
 	cli.cacheUser(&tg.User{ID: 42, FirstName: "Alice"})
 	cli.cacheUser(&tg.User{ID: 99, FirstName: "Bob"})
 
-	originalFetch := fetchReplyMessagesFunc
-	defer func() { fetchReplyMessagesFunc = originalFetch }()
-	fetchReplyMessagesFunc = func(ctx context.Context, cli *TelegramCLI, ids []int64) (map[int64]*tg.Message, error) {
+	originalFetch := cli.fetchReplyMessagesFunc
+	defer func() { cli.fetchReplyMessagesFunc = originalFetch }()
+	cli.fetchReplyMessagesFunc = func(ctx context.Context, cli *TelegramCLI, ids []int64) (map[int64]*tg.Message, error) {
 		return map[int64]*tg.Message{
 			55: {
 				ID:      55,
@@ -76,12 +75,6 @@ func TestResolveReplyReferencesForMessagesFallsBackToFetch(t *testing.T) {
 }
 
 func TestFallbackReplyReferenceUsesQuoteText(t *testing.T) {
-	originalFetch := fetchReplyMessagesFunc
-	defer func() { fetchReplyMessagesFunc = originalFetch }()
-	fetchReplyMessagesFunc = func(ctx context.Context, cli *TelegramCLI, ids []int64) (map[int64]*tg.Message, error) {
-		return nil, errors.New("boom")
-	}
-
 	msg := &tg.Message{
 		ID:      90,
 		Message: "reply body",

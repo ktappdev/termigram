@@ -14,10 +14,6 @@ import (
 	"github.com/gotd/td/telegram/downloader"
 )
 
-var imageDownloadFunc = downloadImageAttachment
-var openLocalPath = defaultOpenLocalPath
-var cacheOutboundImageFunc = cacheOutboundImageCopy
-
 func (cli *TelegramCLI) ensureImageDownloaded(ctx context.Context, target string, entry transcriptEntry) (string, error) {
 	if entry.Image == nil {
 		return "", fmt.Errorf("message does not contain an image")
@@ -41,14 +37,14 @@ func (cli *TelegramCLI) ensureImageDownloaded(ctx context.Context, target string
 	path := filepath.Join(dir, filename)
 	if fileExists(path) {
 		entry.Image.CachedPath = path
-		cli.updateImageCachePath(target, entry.MessageID, path)
+		cli.transcriptStore.updateImageCachePath(target, entry.MessageID, path)
 		return path, nil
 	}
 
-	if err := imageDownloadFunc(ensureContext(ctx), cli, entry, path); err != nil {
+	if err := cli.imageDownloadFunc(ctx, cli, entry, path); err != nil {
 		return "", err
 	}
-	cli.updateImageCachePath(target, entry.MessageID, path)
+	cli.transcriptStore.updateImageCachePath(target, entry.MessageID, path)
 	return path, nil
 }
 

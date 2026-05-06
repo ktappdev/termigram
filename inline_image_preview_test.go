@@ -11,41 +11,40 @@ import (
 )
 
 func TestDetectInlineImageProtocolAuto(t *testing.T) {
-	originalTTYCheck := inlineImageTTYCheck
-	inlineImageTTYCheck = func() bool { return true }
-	defer func() { inlineImageTTYCheck = originalTTYCheck }()
+	cli := NewTelegramCLI(1, "hash", filepath.Join(t.TempDir(), "session.json"))
+	cli.ttyCheck = func() bool { return true }
 
-	kitty := detectInlineImageProtocol(func(key string) string {
+	cli.envLookup = func(key string) string {
 		switch key {
 		case "TERM":
 			return "xterm-kitty"
 		default:
 			return ""
 		}
-	}, inlineImageModeAuto, inlineImageProtocolNone)
+	}
+	kitty := cli.detectInlineImageProtocol(inlineImageModeAuto, inlineImageProtocolNone)
 	if kitty != inlineImageProtocolKitty {
 		t.Fatalf("expected kitty protocol, got %q", kitty)
 	}
 
-	iterm := detectInlineImageProtocol(func(key string) string {
+	cli.envLookup = func(key string) string {
 		switch key {
 		case "TERM_PROGRAM":
 			return "iTerm.app"
 		default:
 			return ""
 		}
-	}, inlineImageModeAuto, inlineImageProtocolNone)
+	}
+	iterm := cli.detectInlineImageProtocol(inlineImageModeAuto, inlineImageProtocolNone)
 	if iterm != inlineImageProtocolITerm2 {
 		t.Fatalf("expected iTerm2 protocol, got %q", iterm)
 	}
 }
 
 func TestDetectInlineImageProtocolDisablesAutoUnderTmux(t *testing.T) {
-	originalTTYCheck := inlineImageTTYCheck
-	inlineImageTTYCheck = func() bool { return true }
-	defer func() { inlineImageTTYCheck = originalTTYCheck }()
-
-	got := detectInlineImageProtocol(func(key string) string {
+	cli := NewTelegramCLI(1, "hash", filepath.Join(t.TempDir(), "session.json"))
+	cli.ttyCheck = func() bool { return true }
+	cli.envLookup = func(key string) string {
 		switch key {
 		case "TERM":
 			return "xterm-kitty"
@@ -54,7 +53,8 @@ func TestDetectInlineImageProtocolDisablesAutoUnderTmux(t *testing.T) {
 		default:
 			return ""
 		}
-	}, inlineImageModeAuto, inlineImageProtocolNone)
+	}
+	got := cli.detectInlineImageProtocol(inlineImageModeAuto, inlineImageProtocolNone)
 	if got != inlineImageProtocolNone {
 		t.Fatalf("expected auto mode to disable previews under tmux, got %q", got)
 	}
@@ -80,10 +80,6 @@ func TestBuildInlinePreviewPNGProducesSmallPNG(t *testing.T) {
 }
 
 func TestRenderInlineImageBlockAlignsOutgoingRight(t *testing.T) {
-	originalTTYCheck := inlineImageTTYCheck
-	inlineImageTTYCheck = func() bool { return true }
-	defer func() { inlineImageTTYCheck = originalTTYCheck }()
-
 	t.Setenv("TERMIGRAM_INLINE_IMAGES", "on")
 	t.Setenv("TERMIGRAM_INLINE_IMAGE_PROTOCOL", "kitty")
 
@@ -91,6 +87,7 @@ func TestRenderInlineImageBlockAlignsOutgoingRight(t *testing.T) {
 	writePNG(t, path)
 
 	cli := NewTelegramCLI(1, "hash", filepath.Join(t.TempDir(), "session.json"))
+	cli.ttyCheck = func() bool { return true }
 	block, rows, ok := cli.renderInlineImageBlock("@alice", transcriptEntry{
 		MessageID: 6,
 		Outgoing:  true,
@@ -103,7 +100,7 @@ func TestRenderInlineImageBlockAlignsOutgoingRight(t *testing.T) {
 			MIMEType:   "image/png",
 			CachedPath: path,
 		},
-	}, 100, currentInlineImageConfig())
+	}, 100, cli.currentInlineImageConfig())
 	if !ok || rows == 0 {
 		t.Fatalf("expected inline image block to render")
 	}
@@ -116,10 +113,6 @@ func TestRenderInlineImageBlockAlignsOutgoingRight(t *testing.T) {
 }
 
 func TestRenderActiveChatViewKeepsImagesInFlow(t *testing.T) {
-	originalTTYCheck := inlineImageTTYCheck
-	inlineImageTTYCheck = func() bool { return true }
-	defer func() { inlineImageTTYCheck = originalTTYCheck }()
-
 	t.Setenv("TERMIGRAM_INLINE_IMAGES", "on")
 	t.Setenv("TERMIGRAM_INLINE_IMAGE_PROTOCOL", "kitty")
 
@@ -127,6 +120,7 @@ func TestRenderActiveChatViewKeepsImagesInFlow(t *testing.T) {
 	writePNG(t, path)
 
 	cli := NewTelegramCLI(1, "hash", filepath.Join(t.TempDir(), "session.json"))
+	cli.ttyCheck = func() bool { return true }
 	view := cli.renderActiveChatView("Alice", "@alice", []transcriptEntry{
 		{
 			MessageID: 1,
